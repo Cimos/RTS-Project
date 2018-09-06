@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "FT800.h"
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
@@ -51,6 +52,8 @@ int main(void)
 	//Call your thread
 #endif
 
+
+	int b = 1;
 
 	puts("RTS - Traffic Light Project"); /* prints Hello World!!! */
 	return EXIT_SUCCESS;

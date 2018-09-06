@@ -1,6 +1,11 @@
-13:06:56 **** Incremental Build of configuration armv7le-debug for project vehicle_intersection_2 ****
+18:33:06 **** Build of configuration armv7le-debug for project vehicle_intersection_2 ****
 make -j8 all 
-make: Nothing to be done for 'all'.
+qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/vehicle_intersection_2.d,-MT,build/armv7le-debug/src/vehicle_intersection_2.o -o build/armv7le-debug/src/vehicle_intersection_2.o -I../common/public -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/vehicle_intersection_2.cpp
+src/vehicle_intersection_2.cpp: In function 'int main()':
+src/vehicle_intersection_2.cpp:56:6: warning: unused variable 'b' [-Wunused-variable]
+  int b = 1;
+      ^
+qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/vehicle_intersection_2   build/armv7le-debug/src/vehicle_intersection_2.o  -L"../common/build/armv7le-debug" -lcommon
 
-13:06:56 Build Finished (took 107ms)
+18:33:07 Build Finished (took 314ms)
 

@@ -1,6 +1,7 @@
-13:06:56 **** Incremental Build of configuration armv7le-debug for project train_intersection_1 ****
+18:33:05 **** Build of configuration armv7le-debug for project train_intersection_1 ****
 make -j8 all 
-make: Nothing to be done for 'all'.
+qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/train_intersection_1.d,-MT,build/armv7le-debug/src/train_intersection_1.o -o build/armv7le-debug/src/train_intersection_1.o -I../common/public -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/train_intersection_1.cpp
+qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/train_intersection_1   build/armv7le-debug/src/train_intersection_1.o  -L"C:/QNX7workspace/RTS-Project/common/build/armv7le-debug" -lcommon
 
-13:06:56 Build Finished (took 109ms)
+18:33:06 Build Finished (took 317ms)
 

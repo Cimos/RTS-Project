@@ -16,9 +16,10 @@
 *---------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
-#include "../../_source/api/i2c_HAL.h"
-#include "../../_source/api/server_config.h"
-//#include "i2c_HAL.h"
+
+#include "FT800.h"
+#include "lcdThread.h"
+
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
@@ -53,9 +54,10 @@ int main(void)
 	//Call your thread
 #endif
 
-	unsigned char cmd = 0;
-	tmp();
-	//host_command(cmd);
+	_self *self;
+	int i = i2cInit(self);
+	i2c_LCD_port_OPEN();
+	host_command((unsigned char)0);
 	puts("RTS - Traffic Light Project"); /* prints Hello World!!! */
 	return EXIT_SUCCESS;
 }

@@ -16,7 +16,7 @@
 *---------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
-
+#include "lcdThread.h"
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
@@ -51,6 +51,12 @@ int main(void)
 	//Call your thread
 #endif
 
+	_self *self;
+	i2cInit(self);
+
+	self = NULL;
+
+	// do something
 
 	puts("RTS - Traffic Light Project"); /* prints Hello World!!! */
 	return EXIT_SUCCESS;

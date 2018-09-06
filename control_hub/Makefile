@@ -1,4 +1,4 @@
-ARTIFACT = control_hub
+ARTIFACT = control_hub 
 
 #Build architecture/variant string, possible values: x86, armv7le, etc...
 PLATFORM ?= armv7le
@@ -21,6 +21,9 @@ LD = $(CXX)
 #INCLUDES += -I/path/to/my/lib/include
 #INCLUDES += -I../mylib/public
 
+INCLUDES += -I../common/public
+
+LIBS += -L"C:/QNX7workspace/RTS-Project/common/$(OUTPUT_DIR)" -lcommon
 #LIBS += -L/path/to/my/lib/$(PLATFORM)/usr/lib -lmylib
 #LIBS += -L../mylib/$(OUTPUT_DIR) -lmylib
 
@@ -36,7 +39,7 @@ LIBS_profile += -lprofilingS
 CCFLAGS_all += -Wall -fmessage-length=0
 CCFLAGS_all += $(CCFLAGS_$(BUILD_PROFILE))
 #Shared library has to be compiled with -fPIC
-#CCFLAGS_all += -fPIC
+CCFLAGS_all += -fPIC
 LDFLAGS_all += $(LDFLAGS_$(BUILD_PROFILE))
 LIBS_all += $(LIBS_$(BUILD_PROFILE))
 DEPS = -Wp,-MMD,$(@:%.o=%.d),-MT,$@
@@ -60,7 +63,7 @@ $(OUTPUT_DIR)/%.o: %.cpp
 
 #Linking rule
 $(TARGET):$(OBJS)
-	$(LD) -o $(TARGET) $(LDFLAGS_all) $(LDFLAGS) $(OBJS) $(LIBS_all) $(LIBS)
+	$(LD) -o $(TARGET) $(LDFLAGS_all) $(LDFLAGS) $(OBJS)  $(LIBS_all) $(LIBS)
 
 #Rules section for default compilation and linking
 all: $(TARGET)

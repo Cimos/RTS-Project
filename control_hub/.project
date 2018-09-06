@@ -3,6 +3,7 @@
 	<name>control_hub</name>
 	<comment></comment>
 	<projects>
+		<project>common</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
@@ -24,17 +25,4 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>_source</name>
-			<type>2</type>
-			<location>C:/QNX7workspace/RTS-Project/_source</location>
-		</link>
-	</linkedResources>
-	<variableList>
-		<variable>
-			<name>lib</name>
-			<value>file:/C:/QNX7workspace/RTS-Project/_source</value>
-		</variable>
-	</variableList>
 </projectDescription>
