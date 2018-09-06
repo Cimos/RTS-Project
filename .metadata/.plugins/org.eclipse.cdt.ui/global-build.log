@@ -1,25 +1,8 @@
-09:51:28 **** Incremental Build of configuration armv7le-debug for project projectTrafficLight ****
-make -j8 all 
-qcc -Vgcc_ntoarmv7le -o build/armv7le-debug/projectTrafficLight   build/armv7le-debug/src/projectTrafficLight.o build/armv7le-debug/src/i2c/i2c_HAL.o build/armv7le-debug/src/FT800/lcdThread.o  
-<<<<<<< Updated upstream
-<<<<<<< HEAD
-12:01:14 **** Build of configuration armv7le-debug for project train_intersection_1 ****
-make -j4 all 
-qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/train_intersection_1.d,-MT,build/armv7le-debug/src/train_intersection_1.o -o build/armv7le-debug/src/train_intersection_1.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/train_intersection_1.cpp
-qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/train_intersection_1   build/armv7le-debug/src/train_intersection_1.o  
-12:01:58 **** Build of configuration armv7le-debug for project vehicle_intersection_2 ****
-make -j4 all 
-qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/vehicle_intersection_2.d,-MT,build/armv7le-debug/src/vehicle_intersection_2.o -o build/armv7le-debug/src/vehicle_intersection_2.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/vehicle_intersection_2.cpp
-qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/vehicle_intersection_2   build/armv7le-debug/src/vehicle_intersection_2.o  
-=======
-12:05:15 **** Build of configuration armv7le-debug for project vehicle_intersection_1 ****
-make -j8 all 
-qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/vehicle_intersection_1.d,-MT,build/armv7le-debug/src/vehicle_intersection_1.o -o build/armv7le-debug/src/vehicle_intersection_1.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/vehicle_intersection_1.cpp
-qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/vehicle_intersection_1   build/armv7le-debug/src/vehicle_intersection_1.o  
->>>>>>> 1-project_dev
-=======
-12:01:49 **** Build of configuration armv7le-debug for project control_hub ****
+13:07:05 **** Incremental Build of configuration armv7le-debug for project control_hub ****
 make -j8 all 
 qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/control_hub.d,-MT,build/armv7le-debug/src/control_hub.o -o build/armv7le-debug/src/control_hub.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/control_hub.cpp
+src/control_hub.cpp: In function 'int main()':
+src/control_hub.cpp:56:16: warning: unused variable 'cmd' [-Wunused-variable]
+  unsigned char cmd = 0;
+                ^
 qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/control_hub   build/armv7le-debug/src/control_hub.o  
->>>>>>> Stashed changes

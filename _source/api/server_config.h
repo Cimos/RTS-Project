@@ -1,0 +1,6 @@
+
+
+void tmp()
+{
+	printf("Hello");
+}

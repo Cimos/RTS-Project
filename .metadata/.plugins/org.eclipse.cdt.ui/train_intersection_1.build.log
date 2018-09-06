@@ -1,7 +1,6 @@
-12:01:14 **** Build of configuration armv7le-debug for project train_intersection_1 ****
-make -j4 all 
-qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/train_intersection_1.d,-MT,build/armv7le-debug/src/train_intersection_1.o -o build/armv7le-debug/src/train_intersection_1.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/train_intersection_1.cpp
-qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/train_intersection_1   build/armv7le-debug/src/train_intersection_1.o  
+13:06:56 **** Incremental Build of configuration armv7le-debug for project train_intersection_1 ****
+make -j8 all 
+make: Nothing to be done for 'all'.
 
-12:01:18 Build Finished (took 3s.688ms)
+13:06:56 Build Finished (took 109ms)
 

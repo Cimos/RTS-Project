@@ -1,7 +1,6 @@
-12:05:15 **** Build of configuration armv7le-debug for project vehicle_intersection_1 ****
+13:06:56 **** Incremental Build of configuration armv7le-debug for project vehicle_intersection_1 ****
 make -j8 all 
-qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/vehicle_intersection_1.d,-MT,build/armv7le-debug/src/vehicle_intersection_1.o -o build/armv7le-debug/src/vehicle_intersection_1.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/vehicle_intersection_1.cpp
-qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/vehicle_intersection_1   build/armv7le-debug/src/vehicle_intersection_1.o  
+make: Nothing to be done for 'all'.
 
-12:05:17 Build Finished (took 1s.443ms)
+13:06:56 Build Finished (took 104ms)
 
