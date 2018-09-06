@@ -20,10 +20,6 @@
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
-//#define SHAWN
-#define SIMON
-//#define MICHAEL
-
 
 /*-----------------------------------------------------------------------------
 * Local Variables and Buffers
@@ -42,16 +38,6 @@
 *---------------------------------------------------------------------------*/
 int main(void)
 {
-
-#if defined(SHAWN)
-	//Call your thread
-#elif defined(SIMON)
-	//Call your thread
-#elif defined(MICHAEL)
-	//Call your thread
-#endif
-
-
 	puts("RTS - Traffic Light Project"); /* prints Hello World!!! */
 	return EXIT_SUCCESS;
 }

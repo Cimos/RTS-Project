@@ -44,11 +44,13 @@ int main(void)
 {
 
 #if defined(SHAWN)
-	//Call your thread
+
 #elif defined(SIMON)
-	//Call your thread
+
 #elif defined(MICHAEL)
-	//Call your thread
+
+
+
 #endif
 
 

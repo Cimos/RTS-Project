@@ -20,9 +20,9 @@
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
-//#define SHAWN
+#define SHAWN
 #define SIMON
-//#define MICHAEL
+#define MICHAEL
 
 
 /*-----------------------------------------------------------------------------
@@ -42,16 +42,6 @@
 *---------------------------------------------------------------------------*/
 int main(void)
 {
-
-#if defined(SHAWN)
-	//Call your thread
-#elif defined(SIMON)
-	//Call your thread
-#elif defined(MICHAEL)
-	//Call your thread
-#endif
-
-
 	puts("RTS - Traffic Light Project"); /* prints Hello World!!! */
 	return EXIT_SUCCESS;
 }

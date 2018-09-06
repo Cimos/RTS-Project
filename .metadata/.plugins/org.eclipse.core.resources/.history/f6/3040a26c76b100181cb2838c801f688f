@@ -22,7 +22,7 @@
 *---------------------------------------------------------------------------*/
 //#define SHAWN
 #define SIMON
-//#define MICHAEL
+#define MICHAEL
 
 
 /*-----------------------------------------------------------------------------
@@ -43,12 +43,8 @@
 int main(void)
 {
 
-#if defined(SHAWN)
-	//Call your thread
-#elif defined(SIMON)
-	//Call your thread
-#elif defined(MICHAEL)
-	//Call your thread
+#ifdef SHAWN
+
 #endif
 
 
