@@ -3,6 +3,9 @@
 <instance id="com.qnx.qcc.toolChain.807250174">
 <collector id="org.eclipse.cdt.make.core.PerProjectSICollector">
 <includePath path="C:/QNX7workspace/RTS-Project/common/public"/>
+<includePath path="C:/qnx700/target/qnx7/usr/include"/>
+<includePath path="C:/qnx700/host/win64/x86_64/usr/lib/gcc/arm-unknown-nto-qnx7.0.0eabi/5.4.0/include"/>
+<includePath path="C:/qnx700/target/qnx7/usr/include/c++/v1"/>
 <includePath path="C:/Users/MadMan/qnx700/target/qnx7/usr/include"/>
 <includePath path="C:/Users/MadMan/qnx700/host/win64/x86_64/usr/lib/gcc/arm-unknown-nto-qnx7.0.0eabi/5.4.0/include"/>
 <includePath path="C:/Users/MadMan/qnx700/target/qnx7/usr/include/c++/v1"/>

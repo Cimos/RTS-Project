@@ -1,5 +1,5 @@
-18:33:05 **** Build of configuration armv7le-debug for project control_hub ****
-make -j8 all 
+15:34:19 **** Build of configuration armv7le-debug for project control_hub ****
+make -j4 all 
 qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/control_hub.d,-MT,build/armv7le-debug/src/control_hub.o -o build/armv7le-debug/src/control_hub.o -I../common/public -Wall -fmessage-length=0 -g -O0 -fno-builtin -fPIC  src/control_hub.cpp
 src/control_hub.cpp: In function 'int main()':
 src/control_hub.cpp:58:6: warning: unused variable 'i' [-Wunused-variable]
@@ -10,5 +10,5 @@ src/control_hub.cpp:58:22: warning: 'self' is used uninitialized in this functio
                       ^
 qcc -lang-c++ -Vgcc_ntoarmv7le -o build/armv7le-debug/control_hub    build/armv7le-debug/src/control_hub.o   -L"C:/QNX7workspace/RTS-Project/common/build/armv7le-debug" -lcommon
 
-18:33:05 Build Finished (took 369ms)
+15:34:19 Build Finished (took 493ms)
 

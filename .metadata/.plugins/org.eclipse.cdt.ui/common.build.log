@@ -1,7 +1,7 @@
-18:33:04 **** Build of configuration armv7le-debug for project common ****
-make -j8 all 
-qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/lcd/lcdThread.d,-MT,build/armv7le-debug/src/lcd/lcdThread.o -o build/armv7le-debug/src/lcd/lcdThread.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin -fPIC -shared  src/lcd/lcdThread.cpp
+15:34:18 **** Build of configuration armv7le-debug for project common ****
+make -j4 all 
 qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/i2c/i2c_HAL.d,-MT,build/armv7le-debug/src/i2c/i2c_HAL.o -o build/armv7le-debug/src/i2c/i2c_HAL.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin -fPIC -shared  src/i2c/i2c_HAL.cpp
+qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/lcd/lcdThread.d,-MT,build/armv7le-debug/src/lcd/lcdThread.o -o build/armv7le-debug/src/lcd/lcdThread.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin -fPIC -shared  src/lcd/lcdThread.cpp
 src/i2c/i2c_HAL.cpp: In function 'void host_command(ft_uint8_t)':
 src/i2c/i2c_HAL.cpp:84:11: warning: variable 'data' set but not used [-Wunused-but-set-variable]
      UINT8 data[3] = {};
@@ -53,7 +53,7 @@ src/lcd/lcdThread.cpp:52:73: warning: 'file' is used uninitialized in this funct
   error = devctl(file,DCMD_I2C_SET_BUS_SPEED,&(speed),sizeof(speed),NULL);  // Set Bus speed
                                                                          ^
 qcc -lang-c++ -Vgcc_ntoarmv7le -static -a build/armv7le-debug/libcommon.a   build/armv7le-debug/src/i2c/i2c_HAL.o build/armv7le-debug/src/lcd/lcdThread.o  
-C:\Users\MadMan\qnx700\host\win64\x86_64\usr\bin\arm-unknown-nto-qnx7.0.0eabi-ar: creating build/armv7le-debug/libcommon.a
+C:\qnx700\host\win64\x86_64\usr\bin\arm-unknown-nto-qnx7.0.0eabi-ar: creating build/armv7le-debug/libcommon.a
 
-18:33:05 Build Finished (took 843ms)
+15:34:19 Build Finished (took 453ms)
 
