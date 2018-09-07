@@ -1,3 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">&#x0A;<refactoring comment="Rename resource &apos;common/src/i2c_HAL.c&apos; to &apos;i2c_HAL.cpp&apos;" description="Rename resource &apos;i2c_HAL.c&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="src/i2c_HAL.c" name="i2c_HAL.cpp" stamp="1536219607937" updateReferences="true"/>&#x0A;<refactoring comment="Rename resource &apos;common/src/lcdThread.c&apos; to &apos;lcdThread.cpp&apos;" description="Rename resource &apos;lcdThread.c&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="src/lcdThread.c" name="lcdThread.cpp" stamp="1536219616188" updateReferences="true"/>
-</session>

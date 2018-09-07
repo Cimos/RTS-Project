@@ -1,8 +1,0 @@
-17:33:57 **** Build of configuration armv7le-debug for project tmp ****
-make -j8 all 
-qcc -lang-c++ -Vgcc_ntoarmv7le -c -Wp,-MMD,build/armv7le-debug/src/tmp.d,-MT,build/armv7le-debug/src/tmp.o -o build/armv7le-debug/src/tmp.o  -Wall -fmessage-length=0 -g -O0 -fno-builtin  src/tmp.cpp
-qcc -lang-c++ -Vgcc_ntoarmv7le -static -a build/armv7le-debug/libtmp.a   build/armv7le-debug/src/tmp.o  
-C:\Users\MadMan\qnx700\host\win64\x86_64\usr\bin\arm-unknown-nto-qnx7.0.0eabi-ar: creating build/armv7le-debug/libtmp.a
-
-17:33:57 Build Finished (took 322ms)
-
