@@ -2,11 +2,19 @@
  * i2c_HAL.c
  *
  *  Created on: 20Aug.,2018
- *      Author: MadMan
+ *  	Author: MadMan
+ *
+ *  BBB P9 connections:
+ *    - P9_Pin17 - SCL - I2C1	 GPIO3_2
+ *    - P9_Pin18 - SDA - I2C1    GPIO3_1
+ *
+ *
  */
 
 #include "../../public/i2c_HAL.h"
 #include <strings.h>
+#include <hw/i2c.h>
+
 
 
 #define ACTIVE  0x00
@@ -20,8 +28,7 @@
 
 #define I2C_PORT            0
 #define I2C_ADDRESS         0x23
-#define I2C_FREQUENCY       100000    //100k hz //400k needed?
-
+#define I2C_FREQUENCY       400000    //100k hz //400k needed?
 
 
 
@@ -55,12 +62,12 @@ unsigned short cmd_offset = 0;
  * Global Function Declarations
  *---------------------------------------------------------------------------*/
 
-
-int I2C_Write(I2C_HANDLE *p, UINT8 addr, int size, UINT8 *command);
-int I2C_Transaction(I2C_HANDLE *p, UINT8 addr, int size, UINT8 *command, int size2, UINT8 *retBuf);
 void I2C_Open(I2C_HANDLE *p, int i, int j, int k, int l);
 void I2C_Close(I2C_HANDLE *p);
 
+
+int I2C_Write(I2C_HANDLE *p, UINT8 addr, int size, UINT8 *command);
+int I2C_Transaction(I2C_HANDLE *p, UINT8 addr, int size, UINT8 *command, int size2, UINT8 *retBuf);
 
 
 
@@ -191,8 +198,11 @@ ft_uint8_t wr8s(UINT32 addr, ft_char8_t *s)   // max 20 bytes of data excluding 
     int i = 0;
     UINT8 *data = NULL;
 
-    data = (UINT8 *)umalloc((length+3) + allignment);
 
+	if ((data = (UINT8 *)umalloc((length+3) + allignment)) == NULL)
+	{
+		return i;
+	}
 
     data[0] = 0x80 + ((addr>>16) & 0x3F);
     data[1] = addr>>8 & 0xFF;
