@@ -86,13 +86,15 @@ int main(void)
 {
 	static _self self;
 
+	int error = 0;
 
+	UINT8 *tmp = (UINT8*)"Hello World";
+	error = I2C_Open(&self.I2C_handle, 0, bus_speed::BAUD_100K, 0, 0);
 
-	I2C_Open(&self.I2C_handle, 0, bus_speed::BAUD_400K, 0, 0);
+	error = I2C_Write(&self.I2C_handle, 0x12, tmp, sizeof("Hello World"));
 
-	I2C_Write(&self.I2C_handle, 0x12, (UINT8 *)"123", sizeof("123"));
+	error = I2C_Close(&self.I2C_handle);
 
-	I2C_Close(&self.I2C_handle);
 
 
 
@@ -118,17 +120,30 @@ int main(void)
  */
 int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2)
 {
+	int error = 0;
+	//_Uint32t speed = 10000; // nice and slow (will work with 200000)
+	//i2c_addr_t address;
+	//address.fmt = I2C_ADDRFMT_7BIT;
+	//address.addr = 0x90;
+
 	if (port > 1 || port < 0)
 	{ return -1; }
 
 	handle->devName[8] = ('0' + port);
-	handle->devName[9] = '\0';
 	handle->bus_speed = i2cFrequency;
 
-	if ((handle->fd = open(handle->devName, O_RDWR)) < 0)
+	if ((handle->fd = open("/dev/i2c1", O_RDWR)) < 0)
 	{ return -1; }
 
-	return devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(i2cFrequency), sizeof(UINT32), NULL);
+	return devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(i2cFrequency), sizeof(i2cFrequency), NULL);
+	//fprintf(stderr, "Error setting the I2C bus speed: %s\n",strerror ( error ));
+
+
+	//error = devctl(handle->fd,DCMD_I2C_SET_SLAVE_ADDR,&address,sizeof(address),NULL);
+
+	//fprintf(stderr, "Error setting the slave address: %s\n",strerror ( error ));
+
+	//return error;
 }
 
 /*
@@ -161,7 +176,11 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size)
 	SETIOV(&siov[0], &hdr, sizeof(hdr));
 	SETIOV(&siov[1], &data[0], size);
 
-	return devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
+
+	int error = devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
+
+	fprintf(stderr, "Error sendding i2c msg: %s\n",strerror ( error ));
+
 }
 
 /*
