@@ -19,9 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <unistd.h>
-#include <String>
-
+//#include <string.h>	// used for memcopy
 
 /*-----------------------------------------------------------------------------
 * Definitions
@@ -183,3 +181,99 @@ bool read_pid_chid_FromFile(int *pid, int *chid, char *file2Read)
 
 	return true;
 }
+
+
+
+/* ----------------------------------------------------	*
+ *	@read_string_FromFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool read_string_FromFile(std::string *buf, int size2Read, char *file2Read)
+{
+	FILE *fp;
+	char *line = (char *)malloc(size2Read);
+	int pos1=0,pos2=0,pos3=0,pos4=0;
+
+	// Open file with read only
+	fp = fopen(file2Read, "r" );	// mode = read only
+	DEBUGF("File Open:\n");
+
+
+	if( fp != NULL )
+	{
+		DEBUGF("File Reading:\n");
+		while( fread(line, sizeof(char), size2Read, fp ) != 0 )
+		{
+			DEBUGF("%s\n", *line );
+		}
+	}
+	else
+	{
+		// return failure
+		return false;
+	}
+
+	// close file
+	fclose(fp);
+	DEBUGF("File Close:\n");
+
+	// copying read data into string
+	(*buf) = line;
+
+	// freeing malloc after use
+	free(line);
+
+	// return success
+	return true;
+}
+
+
+
+/* ----------------------------------------------------	*
+ *	@read_string_FromFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read)
+{
+	FILE *fp;
+	char *line = (char *)malloc(sizeOfBuf);
+	int pos1=0,pos2=0,pos3=0,pos4=0;
+
+	// Open file with read only
+	fp = fopen(file2Read, "r" );	// mode = read only
+	DEBUGF("File Open:\n");
+
+
+	if( fp != NULL )
+	{
+		DEBUGF("File Reading:\n");
+		while( fread(line, sizeof(char), sizeOfBuf, fp ) != 0 )
+		{
+			DEBUGF("%s\n", *line );
+		}
+	}
+	else
+	{
+		// return failure
+		return false;
+	}
+
+	// close file
+	fclose(fp);
+	DEBUGF("File Close:\n");
+
+	// copying read data into buffer is sizeOfBud
+	memcpy((void*)buf, (void*)line, (size_t)sizeOfBuf);
+
+	// freeing mem after use
+	free((void*)line);
+
+	// return success
+	return true;
+}
+
+
+
+

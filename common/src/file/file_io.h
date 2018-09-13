@@ -21,6 +21,10 @@
 * Included Files
 *---------------------------------------------------------------------------*/
 
+#include <unistd.h>
+#include <String>
+
+
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
@@ -60,6 +64,23 @@ bool read_pid_chid_FromFile(int *pid, int *chid, char *file2Read);
  *	@return:											*
  * ---------------------------------------------------	*/
 bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char mode = 'w');
+
+
+/* ----------------------------------------------------	*
+ *	@read_string_FromFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool read_string_FromFile(std::string *buf, int size2Read, char *file2Read);
+
+
+/* ----------------------------------------------------	*
+ *	@read_string_FromFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read);
+
 
 
 #endif /* SRC_FILE_FILE_IO_H_ */
