@@ -36,18 +36,30 @@
 
 
 
-/*
- * @breif: use to check if file exists
- * @param: 	pointer to file name.
- * 			mode: includes F_OK, R_OK , W_OK , X_OK
- * @ret: returns true or false for file
- *
- */
+
+
+/* ----------------------------------------------------	*
+ *	@getMsgQueId checkIfFileExists:						*
+ *	@breif: use to check if file exists 				*
+ *	@return:returns true or false for file				*
+ * ---------------------------------------------------	*/
 bool checkIfFileExists(const char *fileName, int mode);
 
-void write_pid_chid_ToFile(void);
 
-void read_pid_chid_FromFile(void);
+/* ----------------------------------------------------	*
+ *	@read_pid_chid_FromFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool read_pid_chid_FromFile(int *pid, int *chid, char *file2Read);
+
+
+/* ----------------------------------------------------	*
+ *	@write_pid_chid_ToFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char mode = 'w');
 
 
 #endif /* SRC_FILE_FILE_IO_H_ */
