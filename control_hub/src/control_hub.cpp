@@ -4,7 +4,7 @@
 *
 *****************************************************************************/
 /**
-* @file     projectTrafficLight.c
+* @file     projectTrafficLight.cpp
 * @brief    RTS Traffic Light Project
 * @author   Michael Stekla	s3545953
 * 			Simon Maddison	s3493550
