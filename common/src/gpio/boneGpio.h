@@ -21,6 +21,7 @@
 * Included Files
 *---------------------------------------------------------------------------*/
 
+#include "../../public/debug.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,7 +29,6 @@
 #include <sys/mman.h>      // for mmap_device_io();
 #include <sys/neutrino.h>  // for ThreadCtl( _NTO_TCTL_IO_PRIV , NULL);
 #include <stdint.h>		   // for unit32 types
-#include "../../public/debug.h"
 
 
 
