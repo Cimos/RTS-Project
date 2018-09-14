@@ -4,7 +4,7 @@
 *
 *****************************************************************************/
 /**
-* @file     projectTrafficLight.c
+* @file     file_io.cpp
 * @brief    RTS Traffic Light Project
 * @author   Michael Stekla	s3545953
 * 			Simon Maddison	s3493550
@@ -25,8 +25,6 @@
 * Definitions
 *---------------------------------------------------------------------------*/
 
-//#define DEBUGF printf("DEBUG->"); printf
-#define DEBUGF //
 
 /*-----------------------------------------------------------------------------
 * Local Variables and Buffers
@@ -52,7 +50,7 @@
  *	@breif: 											*
  *	@return:returns true or false for success			*
  * ---------------------------------------------------	*/
-bool checkIfFileExists(const char *fileName, int mode = F_OK | R_OK | W_OK)
+bool checkIfFileExists(const char *fileName, int mode)
 {
 	// error code returned from access
 	int error = -1;

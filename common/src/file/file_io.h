@@ -5,7 +5,7 @@
 *
 *****************************************************************************/
 /**
-* @file     projectTrafficLight.c
+* @file     file_io.h
 * @brief    RTS Traffic Light Project
 * @author   Michael Stekla	s3545953
 * 			Simon Maddison	s3493550
@@ -23,7 +23,7 @@
 
 #include <unistd.h>
 #include <String>
-
+#include "../../public/debug.h"
 
 /*-----------------------------------------------------------------------------
 * Definitions
@@ -47,7 +47,7 @@
  *	@breif: use to check if file exists 				*
  *	@return:returns true or false for file				*
  * ---------------------------------------------------	*/
-bool checkIfFileExists(const char *fileName, int mode);
+bool checkIfFileExists(const char *fileName, int mode = F_OK | R_OK | W_OK);
 
 
 /* ----------------------------------------------------	*

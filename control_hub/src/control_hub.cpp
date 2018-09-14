@@ -18,6 +18,9 @@
 #include <stdlib.h>
 
 #include "FT800.h"
+//#include "file_io.h"
+#include "boneGpio.h"
+#include "debug.h"
 
 #include <string.h>
 
@@ -87,6 +90,9 @@ int main(void)
 	static _self self;
 
 	int error = 0;
+
+	///checkIfFileExists("Amp");
+	writeBoneLeds();
 
 	UINT8 *tmp = (UINT8*)"Hello World";
 	error = I2C_Open(&self.I2C_handle, 0, bus_speed::BAUD_100K, 0, 0);
