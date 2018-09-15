@@ -30,6 +30,7 @@
 #include <stdint.h>        // for unit32 types
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 
 /*-----------------------------------------------------------------------------
 * Definitions
@@ -43,10 +44,9 @@ typedef struct
 }ISR_data;
 
 
-
 typedef struct _cbTable
 {
-	void (*cb)(char keyPress);
+	void (*cb)(char);
 	struct _cbTable *head;
 	struct _cbTable *next;
 };
@@ -62,10 +62,21 @@ class keyPad
 
 private:
 
-	_cbTable *cbTable;
+	// Thread Pointers
+	pthread_t *workerThread = NULL;
+	pthread_attr_t *workerThreadAttr = NULL;
+
+	// Mutex Pointers
+	pthread_mutex_t *workerMutex;
+
+	_cbTable *cbTable = NULL;
 	ISR_data ISR_area_data;
 
-    void mainWorkThread(void *appData);
+	// Keep alive bool
+	bool kA = true;
+	bool threadRun = true;
+
+
     const struct sigevent* Inthandler( void* area, int id );
 
     uint32_t KeypadReadIObit(uintptr_t gpio_base, uint32_t BitsToRead);
@@ -74,14 +85,14 @@ private:
     void strobe_SCL(uintptr_t gpio_port_add);
     void delaySCL();
 
+
 public:
 
     keyPad();
     ~keyPad();
 
-    void start();
+    void start(pthread_attr_t *_threadAttr);
     void stop();
-
 
     bool registerCallback(void (*_cb)(char));
     bool deregisterCallback(void (*_cb)(char));

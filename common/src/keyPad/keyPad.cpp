@@ -30,15 +30,13 @@
 
 
 #include "keyPad.h"
-#include "../../public/debug.h"
-
 
 #include <hw/inout.h>      // for in32() and out32();
 #include <sys/mman.h>      // for mmap_device_io();
 #include <sys/neutrino.h>  // for ThreadCtl( _NTO_TCTL_IO_PRIV , NULL)
 #include <sched.h>
 #include <sys/procmgr.h>
-
+#include <String>
 
 /*-----------------------------------------------------------------------------
 * Definitions
@@ -108,9 +106,47 @@ typedef union _CONF_MODULE_PIN_STRUCT   // See TRM Page 1420
            unsigned int conf_res_2 : 12;      // reserved MSB
          } b;
 } _CONF_MODULE_PIN;
+
+
+// Mutex workerMutex isnt declared everywhere
+// This can cause compile errors
+#define Lock() { 									\
+		do { 										\
+			if (workerMutex != NULL) 				\
+			{ 										\
+				pthread_mutex_lock(workerMutex); 	\
+			} 										\
+		} while(0); 								\
+	}
+
+
+#define Unlock() { 									\
+		do { 										\
+			if (workerMutex != NULL) 				\
+			{										\
+				pthread_mutex_unlock(workerMutex);	\
+			}										\
+		} while(0); 								\
+	}
+
+
+#define GetkA(m, _kA, __kA) { 						\
+		do {	 									\
+			if (m != NULL) 							\
+			{ 										\
+				pthread_mutex_lock(m); 				\
+				_kA = __kA; 						\
+				pthread_mutex_unlock(m); 			\
+			} 										\
+		} while(0); 								\
+	}
+
 /*-----------------------------------------------------------------------------
-* Global Variables and Buffers
+* Local non-member Function Declarations
 *---------------------------------------------------------------------------*/
+
+void *mainWorkThread(void *appData);
+const struct sigevent* Inthandler( void* area, int id );
 
 
 
@@ -128,10 +164,12 @@ typedef union _CONF_MODULE_PIN_STRUCT   // See TRM Page 1420
  * ---------------------------------------------------	*/
 keyPad::keyPad()
 {
-    // create thread 
-    // kA = true;
-    // malloc any memory needed 
-    // Create and init any variables needed
+	kA = true;
+
+	workerThread = (pthread_t *) malloc(sizeof(pthread_t));
+	workerThreadAttr = (pthread_attr_t *) malloc(sizeof(pthread_attr_t));
+	workerMutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+
 }
 
 
@@ -143,8 +181,16 @@ keyPad::keyPad()
  * ---------------------------------------------------	*/
 keyPad::~keyPad()
 {
-    // kA = false;
-    // mainWorkerThread->join();
+	Lock();
+    kA = false;
+    Unlock();
+
+
+	pthread_join(*workerThread, NULL);
+
+    delete(workerThread);
+    delete(workerThreadAttr);
+    delete(workerMutex);
 }
 
 
@@ -154,10 +200,16 @@ keyPad::~keyPad()
  *	@breif:  											*
  *	@return:                                 			*
  * ---------------------------------------------------	*/
-void keyPad::start()
+void keyPad::start(pthread_attr_t *_threadAttr = NULL)
 {
-	// if not started thread start//
-	// threadRun = true;
+	// Do not need to lock because other thread isnt even running yet
+	threadRun = true;
+
+	if (_threadAttr != NULL)
+	{ memcpy(workerThreadAttr, _threadAttr, sizeof(pthread_attr_t)); }
+
+	// create and run thread
+	pthread_create(workerThread, _threadAttr, mainWorkThread, NULL);
 }
 
 
@@ -169,25 +221,12 @@ void keyPad::start()
  * ---------------------------------------------------	*/
 void keyPad::stop()
 {
-    // if thread not running.. nothing
-    // else threadRun = false;
+	Lock();
+	threadRun = false;
+	Unlock();
 }
   
 	
-
-/* ----------------------------------------------------	*
- *	@getMsgQueId mainWorkThread:						*
- *	@breif:  											*
- *	@return:         		                        	*
- * ---------------------------------------------------	*/
-void keyPad::mainWorkThread(void *appData)
-{
-    // creates interrupt for data ready from i2c keyboard...
-    
-    // wait while we wait for data, then call any callbacks that were registered.
-}
-
-
 
 /* ----------------------------------------------------	*
  *	@getMsgQueId registerCallback:						*
@@ -199,7 +238,7 @@ void keyPad::mainWorkThread(void *appData)
  * ---------------------------------------------------	*/
 bool keyPad::registerCallback(void (*_cb)(char))
 {
-	// Add mutex.lock();
+	Lock();
 
 	//struct _cbTable *tmpHead = NULL;
 
@@ -209,15 +248,28 @@ bool keyPad::registerCallback(void (*_cb)(char))
 
 		// If malloc fails
 		if (cbTable == NULL)
-		{ return false; }
+		{
+			DEBUGF("Malloc failed to allocate memory:\n");
+			Unlock();
+			return false;  // return failure
+		}
 
 		// if a null pointer was given when calling the function
 		if (_cb == NULL)
-		{ return false; }
+		{
+			DEBUGF("The given cb was null:\n");
+			Unlock();
+			return false;  // return failure
+		}
+
+		DEBUGF("The cb was registered:\n");
 
 		//cbTable->head = cbTable;
 		cbTable->cb = _cb;
 
+		Unlock();
+
+		//return success
 		return true;
 	}
 
@@ -232,7 +284,12 @@ bool keyPad::registerCallback(void (*_cb)(char))
 //		}
 //	}
 
+	DEBUGF("A cb was already registered:\n");
+	DEBUGF("Multiple cb table is not supported yet:\n");
 
+	Unlock();
+
+	// return failure
 	return false;
 }
 
@@ -245,27 +302,41 @@ bool keyPad::registerCallback(void (*_cb)(char))
  * ---------------------------------------------------	*/
 bool keyPad::deregisterCallback(void (*_cb)(char))
 {
-	// Add mutex.lock();
+	Lock();
 
 	if (cbTable != NULL)
 	{
 		// if a null pointer was given when calling the function
 		if (_cb == NULL)
-		{ return false; } // return failure
+		{
+			DEBUGF("The given cb was null:\n");
+			Unlock();
+			return false;  // return failure
+		}
 
 		// checking if the function given is the same as when registered
 		if (_cb != cbTable->cb)
-		{ return false; } // return failure
+		{
+			DEBUGF("The given cb didnt match the cb in the table:\n");
+			Unlock();
+			return false;  // return failure
+		}
 
 		// remove the function from the cb pointer
 		cbTable->cb = NULL;
 
+		DEBUGF("The cb was de-registered:\n");
+
 		// free the memory
 		free(cbTable);
+
+		Unlock();
 
 		// return success
 		return true;
 	}
+
+	Unlock();
 
 	// return failure
 	return false;
@@ -350,7 +421,7 @@ void keyPad::DecodeKeyValue(uint32_t word)
 		case 0x8000:
 			DEBUGF("Key 16 pressed:\n");
 			// TODO: is this needed?
-			usleep(1); // do this so we only fire once
+			//usleep(1); // do this so we only fire once
 			break;
 		case 0x00:  // key release event (do nothing)
 			break;
@@ -399,12 +470,22 @@ void keyPad::delaySCL()  {// Small delay used to get timing correct for BBB
 
 
 
+
+
+
+
+
+/*-----------------------------------------------------------------------------
+* Local non-member Function Implementation
+*---------------------------------------------------------------------------*/
+
+
 /* ----------------------------------------------------	*
  *	@getMsgQueId Inthandler:					    	*
  *	@breif:  											*
  *	@return:         		                        	*
  * ---------------------------------------------------	*/
-const struct sigevent* keyPad::Inthandler( void* area, int id )
+const struct sigevent* Inthandler( void* area, int id )
 {
 	// Do not call any functions in ISR that call kernerl - including printf()
 	ISR_data *p_ISR_data = (ISR_data *) area;
@@ -427,6 +508,33 @@ const struct sigevent* keyPad::Inthandler( void* area, int id )
     // This causes the InterruptWait in "int_thread" to unblock.
 	return (&p_ISR_data->pevent);
 }
+
+
+/* ----------------------------------------------------	*
+ *	@getMsgQueId mainWorkThread:						*
+ *	@breif:  											*
+ *	@return:         		                        	*
+ * ---------------------------------------------------	*/
+void* mainWorkThread(void *appData)
+{
+
+	bool tempkA = false;
+
+	do
+	{
+
+		//GetkA(workerMutex,tempkA, kA);
+
+	} while(tempkA);
+    // creates interrupt for data ready from i2c keyboard...
+
+
+    // wait while we wait for data, then call any callbacks that were registered.
+
+
+	return 0; // What to return?
+}
+
 
 
 

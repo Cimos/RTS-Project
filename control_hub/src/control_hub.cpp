@@ -187,6 +187,7 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size)
 
 	fprintf(stderr, "Error sendding i2c msg: %s\n",strerror ( error ));
 
+	return 0;
 }
 
 /*
@@ -216,6 +217,8 @@ int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UIN
 
     // return success??
 	return devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
+
+	return 0;
 }
 
 
