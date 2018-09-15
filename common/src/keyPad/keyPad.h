@@ -27,12 +27,29 @@
 
 #include "../../public/debug.h"
 
+#include <stdint.h>        // for unit32 types
+#include <stdlib.h>
+#include <stdio.h>
 
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
 
+typedef struct
+{
+	int count_thread;
+	uintptr_t gpio1_base;
+	struct sigevent pevent; // remember to fill in "event" structure in main
+}ISR_data;
 
+
+
+typedef struct _cbTable
+{
+	void (*cb)(char keyPress);
+	struct _cbTable *head;
+	struct _cbTable *next;
+};
 
 /*-----------------------------------------------------------------------------
 * Global Variables and Buffers
@@ -45,21 +62,29 @@ class keyPad
 
 private:
 
+	_cbTable *cbTable;
+	ISR_data ISR_area_data;
+
     void mainWorkThread(void *appData);
+    const struct sigevent* Inthandler( void* area, int id );
+
+    uint32_t KeypadReadIObit(uintptr_t gpio_base, uint32_t BitsToRead);
+    void DecodeKeyValue(uint32_t word);
+
+    void strobe_SCL(uintptr_t gpio_port_add);
+    void delaySCL();
 
 public:
 
     keyPad();
     ~keyPad();
-	
+
     void start();
-	void stop();
-    
-    bool registerCallback(void *_cb);
-    bool deregisterCallback(void *_cb);
-    const struct sigevent* Inthandler( void* area, int id );
+    void stop();
 
 
+    bool registerCallback(void (*_cb)(char));
+    bool deregisterCallback(void (*_cb)(char));
 };
 
 

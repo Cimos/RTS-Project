@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 //							Local Functions Definitions
 // ---------------------------------------------------------------------------
-int main(int argc, char *argv[]);
+//int main(int argc, char *argv[]);
 int  I2cWrite_(int fd, uint8_t addr, uint8_t cmd, uint8_t *pBuffer, uint32_t NbData);
 void SetCursor(int fd, uint8_t LCDi2cAdd, uint8_t row, uint8_t column);
 void Initialise_LCD(int fd, _Uint32t LCDi2cAdd);
