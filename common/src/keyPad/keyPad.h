@@ -41,6 +41,9 @@ typedef struct
 	int count_thread;
 	uintptr_t gpio1_base;
 	struct sigevent pevent; // remember to fill in "event" structure in main
+
+	uint64_t  timeout;
+
 }ISR_data;
 
 
@@ -54,7 +57,6 @@ typedef struct _cbTable
 /*-----------------------------------------------------------------------------
 * Global Variables and Buffers
 *---------------------------------------------------------------------------*/
-
 
 
 class keyPad
@@ -76,14 +78,6 @@ private:
 	bool kA = true;
 	bool threadRun = true;
 
-
-    const struct sigevent* Inthandler( void* area, int id );
-
-    uint32_t KeypadReadIObit(uintptr_t gpio_base, uint32_t BitsToRead);
-    void DecodeKeyValue(uint32_t word);
-
-    void strobe_SCL(uintptr_t gpio_port_add);
-    void delaySCL();
 
 
 public:
