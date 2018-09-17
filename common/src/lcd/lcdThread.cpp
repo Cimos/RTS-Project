@@ -45,7 +45,7 @@ int i2cOpen(_self *self);
 int i2cInit(_self *self)
 {
 	int error = 0;
-	int file;
+	int file = 0;
 
 	_Uint32t speed = 10000; // nice and slow (will work with 200000)
 
@@ -56,12 +56,17 @@ int i2cInit(_self *self)
 		return error;
 	}
 	else
+	{
 		printf("->Bus speed set: %d\n", speed);
+	}
+
+	return 0;
 }
 
 int lcdInit(_self *self)
 {
 	volatile uint8_t LCDi2cAdd = 0x3C;	// i2c address
+	return 0;
 }
 
 
@@ -99,7 +104,7 @@ int  I2cWrite_(int fd, uint8_t addr, uint8_t cmd, uint8_t *pBuffer, uint32_t NbD
 {
 	i2c_send_t hdr;
     iov_t sv[2];
-    int status, i;
+    int status;
 
     uint8_t packet[21] = {};  // limited to 21 characters  (1 control bit + 20 bytes)
 

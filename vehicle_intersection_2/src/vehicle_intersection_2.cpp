@@ -53,7 +53,6 @@ int main(void)
 #endif
 
 
-	int b = 1;
 
 	puts("RTS - Traffic Light Project"); /* prints Hello World!!! */
 	return EXIT_SUCCESS;

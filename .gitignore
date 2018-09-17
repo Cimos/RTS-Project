@@ -9,3 +9,5 @@ vehicle_intersection_2/build/
 common/build/
 
 .metadata/
+
+.vscode/

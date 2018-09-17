@@ -60,7 +60,7 @@
  * ---------------------------------------------------	*/
 bool writeBoneLeds(volatile uint32_t val)
 {
-	uintptr_t gpio1_base = NULL;
+	uintptr_t gpio1_base = 0;
 
 	volatile uint32_t	tmp = 0;
 

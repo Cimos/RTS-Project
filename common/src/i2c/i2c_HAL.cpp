@@ -99,7 +99,7 @@ void host_command(UINT8 command)
 
 void wr8(UINT32 addr, ft_uint8_t value)
 {
-    int ret;
+   // int ret;
     UINT8 data[4] = {};
 
     data[0] = 0x80 | ((addr>>16) & 0x3F);     // Upper two bits forces to '80'
@@ -107,12 +107,12 @@ void wr8(UINT32 addr, ft_uint8_t value)
     data[2] = addr & 0xFF;
     data[3] = value;
 
-    ret = I2C_Write(&_ft800.i2c, _ft800.addr<<1, sizeof(data), data);
+    I2C_Write(&_ft800.i2c, _ft800.addr<<1, sizeof(data), data);
 }
 
 void wr16(UINT32 addr, ft_uint16_t value)
 {
-    int ret;
+    //int ret;
     UINT8 data[5] = {};
 
     data[0] = 0x80 | ((addr>>16) & 0x3F);
@@ -121,12 +121,12 @@ void wr16(UINT32 addr, ft_uint16_t value)
     data[3] = value & 0xFF;
     data[4] = value>>8 & 0xFF;
 
-    ret = I2C_Write(&_ft800.i2c, _ft800.addr<<1, 5, data);
+    I2C_Write(&_ft800.i2c, _ft800.addr<<1, 5, data);
 }
 
 void wr32(UINT32 addr, ft_uint32_t value)
 {
-    int ret;
+    //int ret;
     UINT8 data[7] = {};
 
     data[0] = 0x80 | ((addr>>16) & 0x3F);
@@ -137,12 +137,12 @@ void wr32(UINT32 addr, ft_uint32_t value)
     data[5] = value>>16 & 0xFF;
     data[6] = value>>24 & 0xFF;
 
-    ret = I2C_Write(&_ft800.i2c, _ft800.addr<<1, 7, data);
+    I2C_Write(&_ft800.i2c, _ft800.addr<<1, 7, data);
 }
 
 ft_uint8_t rd8(UINT32 addr)
 {
-    int ret;
+    //int ret;
     UINT8 data[3] = {};
 
     data[0] = 0x00 | ((addr>>16) & 0x3F);   // Upper two bits forces to '00'
@@ -151,7 +151,7 @@ ft_uint8_t rd8(UINT32 addr)
 
     // ret is error code and should be check
     // step 1 -- 10
-    ret = I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
+    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
                             3, data,    //tx
                             1, data);   //rx
 
@@ -160,14 +160,14 @@ ft_uint8_t rd8(UINT32 addr)
 
 ft_uint16_t rd16(UINT32 addr)
 {
-    int ret;
+    //int ret;
     UINT8 data[3] = {};
 
     data[0] = 0x00 | ((addr>>16) & 0x3F);
     data[1] = addr>>8 & 0xFF;
     data[2] = addr & 0xFF;
 
-    ret = I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
+    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
                             3, data,
                             2, data);
 
@@ -176,14 +176,14 @@ ft_uint16_t rd16(UINT32 addr)
 
 ft_uint32_t rd32(UINT32 addr)
 {
-    int ret;
+    //int ret;
     UINT8 data[4] = {};
 
     data[0] = 0x00 | ((addr>>16) & 0x3F);
     data[1] = addr>>8 & 0xFF;
     data[2] = addr & 0xFF;
 
-    ret = I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
+    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
                             3, data,
                             4, data);
 

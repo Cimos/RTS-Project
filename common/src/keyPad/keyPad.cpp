@@ -146,11 +146,6 @@ typedef union _CONF_MODULE_PIN_STRUCT   // See TRM Page 1420
 *---------------------------------------------------------------------------*/
 
 
-extern int errno;
-
-char * const sys_errlist[];
-int sys_nerr;
-
 /*-----------------------------------------------------------------------------
 * Local non-member Function Declarations
 *----------------------------------------------------------------------------*/
@@ -159,7 +154,6 @@ void *mainWorkThread(void *appData);
 const struct sigevent* Inthandler( void* area, int id );
 uint32_t KeypadReadIObit(uintptr_t gpio_base, uint32_t BitsToRead);
 char DecodeKeyValue(uint32_t word);
-void initMainWorkerThread(struct sigevent *event)
 void strobe_SCL(uintptr_t gpio_port_add);
 void delaySCL();
 
@@ -244,7 +238,7 @@ void keyPad::stop()
 	Unlock();
 }
   
-	
+
 
 /* ----------------------------------------------------	*
  *	@getMsgQueId registerCallback:						*
@@ -310,6 +304,30 @@ bool keyPad::registerCallback(void (*_cb)(char))
 
 	// return failure
 	return false;
+}
+
+
+
+/* ----------------------------------------------------	*
+ *	@getMsgQueId getCallback:						*
+ *	@breif:	pass a callback function which gets 		*
+ *			called and passes the key that was pressed	*
+ *			void callBackFunction(char keyPressed)		*
+ *														*
+ *	@return: success or failure                       	*
+ * ---------------------------------------------------	*/
+_cbTable* keyPad::getCallback(void)
+{
+
+	//struct _cbTable *tmpHead = NULL;
+
+	if (cbTable != NULL)
+	{
+		Lock();
+		return cbTable;
+	}
+
+	return NULL;
 }
 
 
@@ -552,23 +570,87 @@ const struct sigevent* Inthandler( void* area, int id )
  * ---------------------------------------------------	*/
 void* mainWorkThread(void *appData)
 {
+	_cbTable *cbTable = NULL;
 	keyPad *KeyPad = (keyPad *) appData;
 	bool tempkA = false;
-	int i = 0, intWait_error = 0;
+	int i = 0;
+	int intWait_error = 0;
+    int id = 0; // Attach interrupt Event to IRQ for GPIO1B  (upper 16 bits of port)
 	char key = 0;
+
+    uint32_t val = 0;
 	volatile uint32_t word = 0;
    	uint64_t timeoutSetTime = 1000000000;   
 	uint64_t timeoutRemTime = 0;
     struct sigevent event;
 	struct sigevent timerEvent;
 
+	uintptr_t control_module = 0;
+	uintptr_t gpio1_base = 0;
+
+	if (KeyPad != NULL)
+	{
+		cbTable = KeyPad->getCallback();
+	}
+
+	control_module = mmap_device_io(AM335X_CONTROL_MODULE_SIZE,AM335X_CONTROL_MODULE_BASE);
+	gpio1_base = mmap_device_io(AM335X_GPIO_SIZE, AM335X_GPIO1_BASE);
+
+	if( (control_module)&&(gpio1_base) )
+	{
+
+		ThreadCtl( _NTO_TCTL_IO_PRIV , NULL);// Request I/O privileges;
+
+	    // set DDR for GPIO_28 to input
+	    val = in32(gpio1_base + GPIO_OE); // read in current setup for GPIO1 port
+	    val |= 1<<28;                     // set IO_BIT_28 high (1=input, 0=output)
+	    out32(gpio1_base + GPIO_OE, val); // write value to input enable for data pins
+
+		// Making the scl pin a output so that we can manually clock in the data.
+	    val = in32(gpio1_base + GPIO_OE);
+	    val &= ~SCL;                      // 0 for output
+	    out32(gpio1_base + GPIO_OE, val); // write value to output enable for data pins
+
+		// write scl high
+	    val = in32(gpio1_base + GPIO_DATAOUT);
+	    val |= SCL;              // Set Clock Line High as per TTP229-BSF datasheet
+	    out32(gpio1_base + GPIO_DATAOUT, val); // for 16-Key active-Low timing diagram
 
 
-	initMainWorkerThread(&event);
-    DEBUGF("Waiting For Interrupt 99 - key press on Jaycar (XC4602) keypad\n");
+	    in32s(&val, 1, control_module + P9_12_pinConfig );
+	    DEBUGF("Original pinmux configuration for GPIO1_28 = %#010x\n", val);
+
+	    // set up pin mux for the pins we are going to use  (see page 1354 of TRM)
+	    volatile _CONF_MODULE_PIN pinConfigGPMC; // Pin configuration strut
+	    pinConfigGPMC.d32 = 0;
+	    // Pin MUX register default setup for input (GPIO input, disable pull up/down - Mode 7)
+	    pinConfigGPMC.b.conf_slewctrl = SLEW_SLOW;    // Select between faster or slower slew rate
+	    pinConfigGPMC.b.conf_rxactive = RECV_ENABLE;  // Input enable value for the PAD
+	    pinConfigGPMC.b.conf_putypesel= PU_PULL_UP;   // Pad pullup/pulldown type selection
+	    pinConfigGPMC.b.conf_puden = PU_ENABLE;       // Pad pullup/pulldown enable
+	    pinConfigGPMC.b.conf_mmode = PIN_MODE_7;      // Pad functional signal mux select 0 - 7
+
+	    // Write to PinMux registers for the GPIO1_28
+	    out32(control_module + P9_12_pinConfig, pinConfigGPMC.d32);
+	    in32s(&val, 1, control_module + P9_12_pinConfig);   // Read it back
+	    DEBUGF("New configuration register for GPIO1_28 = %#010x\n", val);
+
+	    // Setup IRQ for SD0 pin ( see TRM page 4871 for register list)
+	    out32(gpio1_base + GPIO_IRQSTATUS_SET_1, SD0);// Write 1 to GPIO_IRQSTATUS_SET_1
+	    out32(gpio1_base + GPIO_IRQWAKEN_1, SD0);    // Write 1 to GPIO_IRQWAKEN_1
+	    out32(gpio1_base + GPIO_FALLINGDETECT, SD0);    // set falling edge
+	    out32(gpio1_base + GPIO_CLEARDATAOUT, SD0);     // clear GPIO_CLEARDATAOUT
+	    out32(gpio1_base + GPIO_IRQSTATUS_1, SD0);      // clear any prior IRQs
+
+	    memset(&event, 0, sizeof(struct sigevent));
+	    event.sigev_notify = SIGEV_INTR;  // Setup for external interrupt
+
+	    id = InterruptAttachEvent(GPIO1_IRQ, &event, _NTO_INTR_FLAGS_TRK_MSK);
+	}
+
+
+    DEBUGF("HW Interrupt setup for keyPad:\n");
  	
-	// QNX Timeout event var Setup
-
 
 	do
 	{
@@ -583,7 +665,7 @@ void* mainWorkThread(void *appData)
 
 	// TODO: Check if re-assigning their values are nedded
 	SIGEV_INTR_INIT(&timerEvent);
-	imeoutSetTime = 1000000000;   // One seconds in nano-secs
+	timeoutSetTime = 1000000000;   // One seconds in nano-secs
 	timeoutRemTime = 0;
 
 	// Timeout
@@ -618,9 +700,9 @@ void* mainWorkThread(void *appData)
 		}
 		//printf("word=%u\n",word);
 		key = DecodeKeyValue(word);
-		if (KeyPad->cb != NULL)
+		if (cbTable->cb != NULL)
 		{
-			KeyPad->cb(key);
+			cbTable->cb(key);
 		}
 	}
 	out32(gpio1_base + GPIO_IRQSTATUS_1, SD0); //clear IRQ
@@ -636,66 +718,6 @@ void* mainWorkThread(void *appData)
 }
 
 
-
-void initMainWorkerThread(struct sigevent *event)
-{
-	uintptr_t control_module = mmap_device_io(AM335X_CONTROL_MODULE_SIZE,AM335X_CONTROL_MODULE_BASE);
-	uintptr_t gpio1_base     = mmap_device_io(AM335X_GPIO_SIZE, AM335X_GPIO1_BASE);
-
-  if( (control_module)&&(gpio1_base) )
-  {
-    ThreadCtl( _NTO_TCTL_IO_PRIV , NULL);// Request I/O privileges;
-
-    volatile uint32_t val = 0;
-
-    // set DDR for GPIO_28 to input
-    val = in32(gpio1_base + GPIO_OE); // read in current setup for GPIO1 port
-    val |= 1<<28;                     // set IO_BIT_28 high (1=input, 0=output)
-    out32(gpio1_base + GPIO_OE, val); // write value to input enable for data pins
-
-	// Making the scl pin a output so that we can manually clock in the data.
-    val = in32(gpio1_base + GPIO_OE);
-    val &= ~SCL;                      // 0 for output
-    out32(gpio1_base + GPIO_OE, val); // write value to output enable for data pins
-
-	// write scl high
-    val = in32(gpio1_base + GPIO_DATAOUT);
-    val |= SCL;              // Set Clock Line High as per TTP229-BSF datasheet
-    out32(gpio1_base + GPIO_DATAOUT, val); // for 16-Key active-Low timing diagram
-
-
-    in32s(&val, 1, control_module + P9_12_pinConfig );
-    printf("Original pinmux configuration for GPIO1_28 = %#010x\n", val);
-
-    // set up pin mux for the pins we are going to use  (see page 1354 of TRM)
-    volatile _CONF_MODULE_PIN pinConfigGPMC; // Pin configuration strut
-    pinConfigGPMC.d32 = 0;
-    // Pin MUX register default setup for input (GPIO input, disable pull up/down - Mode 7)
-    pinConfigGPMC.b.conf_slewctrl = SLEW_SLOW;    // Select between faster or slower slew rate
-    pinConfigGPMC.b.conf_rxactive = RECV_ENABLE;  // Input enable value for the PAD
-    pinConfigGPMC.b.conf_putypesel= PU_PULL_UP;   // Pad pullup/pulldown type selection
-    pinConfigGPMC.b.conf_puden = PU_ENABLE;       // Pad pullup/pulldown enable
-    pinConfigGPMC.b.conf_mmode = PIN_MODE_7;      // Pad functional signal mux select 0 - 7
-
-    // Write to PinMux registers for the GPIO1_28
-    out32(control_module + P9_12_pinConfig, pinConfigGPMC.d32);
-    in32s(&val, 1, control_module + P9_12_pinConfig);   // Read it back
-    printf("New configuration register for GPIO1_28 = %#010x\n", val);
-
-    // Setup IRQ for SD0 pin ( see TRM page 4871 for register list)
-    out32(gpio1_base + GPIO_IRQSTATUS_SET_1, SD0);// Write 1 to GPIO_IRQSTATUS_SET_1
-    out32(gpio1_base + GPIO_IRQWAKEN_1, SD0);    // Write 1 to GPIO_IRQWAKEN_1
-    out32(gpio1_base + GPIO_FALLINGDETECT, SD0);    // set falling edge
-    out32(gpio1_base + GPIO_CLEARDATAOUT, SD0);     // clear GPIO_CLEARDATAOUT
-    out32(gpio1_base + GPIO_IRQSTATUS_1, SD0);      // clear any prior IRQs
-
-    memset(event, 0, sizeof(struct sigevent));
-    event->sigev_notify = SIGEV_INTR;  // Setup for external interrupt
-	SIGEV_INTR_INIT (&timerEvent);
-
-    int id = 0; // Attach interrupt Event to IRQ for GPIO1B  (upper 16 bits of port)
-    id = InterruptAttachEvent(GPIO1_IRQ, event, _NTO_INTR_FLAGS_TRK_MSK);
-}
 
 
 

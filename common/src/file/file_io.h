@@ -71,7 +71,7 @@ bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char mode = 'w'
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool read_string_FromFile(std::string *buf, int size2Read, char *file2Read);
+bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Read, char mode = 'r');
 
 
 /* ----------------------------------------------------	*
@@ -79,9 +79,23 @@ bool read_string_FromFile(std::string *buf, int size2Read, char *file2Read);
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read);
+bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char mode = 'r');
 
 
+/* ----------------------------------------------------	*
+ *	@write_string_ToFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool write_string_ToFile(std::string *buf, std::string *file2Write, char mode = 'w');
+
+
+/* ----------------------------------------------------	*
+ *	@read_string_FromFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char mode = 'w');
 
 #endif /* SRC_FILE_FILE_IO_H_ */
 

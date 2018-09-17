@@ -19,7 +19,8 @@
 
 #include "FT800.h"
 //#include "file_io.h"
-#include "boneGpio.h"
+//#include "boneGpio.h"
+#include "keyPad.h"
 #include "debug.h"
 
 #include <string.h>
@@ -81,7 +82,6 @@ int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, 
 int I2C_Close(I2C_HANDLE *handle);
 int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
 int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
-
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
@@ -91,8 +91,10 @@ int main(void)
 
 	int error = 0;
 
+	keyPad kp;
+
 	///checkIfFileExists("Amp");
-	writeBoneLeds();
+	//writeBoneLeds();
 
 	UINT8 *tmp = (UINT8*)"Hello World";
 	error = I2C_Open(&self.I2C_handle, 0, bus_speed::BAUD_100K, 0, 0);

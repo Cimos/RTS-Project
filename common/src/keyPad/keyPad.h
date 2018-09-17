@@ -68,19 +68,22 @@ private:
 	pthread_t *workerThread = NULL;
 	pthread_attr_t *workerThreadAttr = NULL;
 
-	// Mutex Pointers
-	pthread_mutex_t *workerMutex;
 
 	_cbTable *cbTable = NULL;
 	ISR_data ISR_area_data;
 
-	// Keep alive bool
-	bool kA = true;
 	bool threadRun = true;
 
 
 
 public:
+
+	// Keep alive bool
+	bool kA = true;
+
+	// Mutex Pointers
+	pthread_mutex_t *workerMutex;
+
 
     keyPad();
     ~keyPad();
@@ -90,6 +93,8 @@ public:
 
     bool registerCallback(void (*_cb)(char));
     bool deregisterCallback(void (*_cb)(char));
+    _cbTable* getCallback(void);
+
 };
 
 
