@@ -27,10 +27,10 @@
 
 #include "../../public/debug.h"
 
-//#include <stdint.h>        // for unit32 types
-//#include <stdlib.h>
+#include <stdint.h>        // for unit32 types
+#include <stdlib.h>
 //#include <stdio.h>
-
+#include <time.h>
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
@@ -70,14 +70,14 @@ enum trainStationStates
 
 typedef struct trafficLightTiming
 {
-    uint8_t nsStright;          // North/South Stright Light timeing
-    uint8_t nsTurn;             // North/South Trun Light timeing
-    uint8_t ewStright;          // East/West Stright Light timeing
-    uint8_t ewTurn;             // East/West Trun Light timeing
+    uint8_t nsStright;          // North/South Straight Light timing
+    uint8_t nsTurn;             // North/South Turn Light timing
+    uint8_t ewStright;          // East/West Straight Light timing
+    uint8_t ewTurn;             // East/West Turn Light timing
 };
 
 
-typedef struct _controlHub_to_intersection
+typedef struct _controlHubTointersection
 {
     trafficLightTiming lightTiming;
     trafficLightStates currentState;
@@ -85,11 +85,13 @@ typedef struct _controlHub_to_intersection
 }controler2Intersection;
 
 
-typedef struct chTime
+typedef struct systemTimeAlignment
 {
-    // Add in a time struct
-    // Add in any overall commands I need
-    // Anything else?
+    time_t currentTime;
+    time_t morningPeakStart;
+    time_t morningPeakFinish;
+    time_t eveningPeakStart;
+    time_t eveningPeakFinish;
 };
 
 
