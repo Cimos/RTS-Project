@@ -142,6 +142,18 @@ typedef union _CONF_MODULE_PIN_STRUCT   // See TRM Page 1420
 		} while(0); 								\
 	}
 
+
+#define GetTheadRun(m, tmpTheadRun, _threadRun) { 	\
+		do {	 									\
+			if (m != NULL) 							\
+			{ 										\
+				pthread_mutex_lock(m); 				\
+				tmpTheadRun = _threadRun; 			\
+				pthread_mutex_unlock(m); 			\
+			} 										\
+		} while(0); 								\
+	}
+
 /*-----------------------------------------------------------------------------
 * Global Variables and Buffers
 *---------------------------------------------------------------------------*/
@@ -215,7 +227,7 @@ keyPad::~keyPad()
 void keyPad::start(pthread_attr_t *_threadAttr)
 {
 	// Do not need to lock because other thread isnt even running yet
-	threadRun = true;
+	kA = true;
 
 	if (_threadAttr != NULL)
 	{ memcpy(workerThreadAttr, _threadAttr, sizeof(pthread_attr_t)); }
@@ -238,8 +250,11 @@ void keyPad::start(pthread_attr_t *_threadAttr)
 void keyPad::stop()
 {
 	Lock();
-	threadRun = false;
+	kA = false;
 	Unlock();
+
+	pthread_join(*workerThread, NULL);
+
 }
 
 
@@ -268,7 +283,6 @@ bool keyPad::registerCallback(void (*_cb)(char))
 		if (cbTable == NULL)
 		{
 			//DEBUGF("Malloc failed to allocate memory:\n");
-			Unlock();
 			return false;  // return failure
 		}
 
@@ -325,7 +339,6 @@ _cbTable* keyPad::getCallback(void)
 
 	if (cbTable != NULL)
 	{
-		Lock();
 		return cbTable;
 	}
 
@@ -477,8 +490,6 @@ char DecodeKeyValue(uint32_t word)
 		case 0x8000:
 			//DEBUGF("Key 16 pressed:\n");
 			ret = 'G';
-			// TODO: is this needed?
-			usleep(1); // do this so we only fire once
 			break;
 		case 0x00:  // key release event (do nothing)
 			break;
@@ -571,7 +582,8 @@ void* keyPad::mainWorkThread(void *appData)
 {
 	_cbTable *cbTable = NULL;
 	keyPad *KeyPad = (keyPad *) appData;
-	bool tempkA = false;
+	bool tempkA = true;
+	bool tempRun = true;
 	int i = 0;
     int id = 0; // Attach interrupt Event to IRQ for GPIO1B  (upper 16 bits of port)
 	char key = 0;
@@ -670,16 +682,15 @@ void* keyPad::mainWorkThread(void *appData)
 	    InterruptUnmask(GPIO1_IRQ, id);  // Enable a hardware interrupt
 	}
 
+
+
+
 	do
 	{
 	
 	// Get Keep Alive variable
 	GetkA(KeyPad->workerMutex, tempkA, KeyPad->kA);
 
-	if (!tempkA)
-	{
-		break;
-	}
 
 	// TODO: Check if re-assigning their values are nedded
 	SIGEV_INTR_INIT(&timerEvent);
@@ -713,7 +724,8 @@ void* keyPad::mainWorkThread(void *appData)
 		key = DecodeKeyValue(word);
 		if (cbTable->cb != NULL)
 		{
-			cbTable->cb(key);
+			if (key != 0)
+				cbTable->cb(key);
 		}
 	}
 
@@ -721,10 +733,11 @@ void* keyPad::mainWorkThread(void *appData)
 		InterruptUnmask(GPIO1_IRQ, id);
 		InterruptEnable();
 
-	} while(1);
+	} while(tempkA);
 
-     munmap_device_io(control_module, AM335X_CONTROL_MODULE_SIZE);
+    munmap_device_io(control_module, AM335X_CONTROL_MODULE_SIZE);
 
+    printf("Thread Dead\n");
 	return 0; // What to return?
 }
 

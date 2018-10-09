@@ -154,16 +154,7 @@ int main(void)
 
 
 
-	keyPad kp;
-	kp.registerCallback(keypad_cb);
-	kp.start(&keyPad_attr);
 
-	puts("KeyPad Started");
-
-	while(1)
-	{
-		sleep(1);
-	}
 	///checkIfFileExists("Amp");
 	//writeBoneLeds();
 
@@ -191,8 +182,7 @@ int main(void)
 void keypad_cb(char keypress)
 {
 	// Warning, cant print in here.
-
-	// Notify thread of new job
+	printf("Key %c\n", keypress);
 }
 
 

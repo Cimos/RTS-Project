@@ -11,16 +11,25 @@
 * 			Shawn Buschmann	s3478646
 *
 * Idea is to create a thread that can be init to different i2c ports with different i2c addrs.
-* You can then register a call back that will get called everytime there is a key press...
-* There isnt a limit on the number of callbacks that you register..... This could then be inited
+* You can then register a call back that will get called every time there is a key press...
+* There isnt a limit on the number of callbacks that you register..... This could then be init'ed
 * by a main function and then multiple threads can register to get updates????
 *
 */
 
+// GOOD IMAGE (Apparently: Shawn said so:) https://images.google.com.au/imgres?imgurl=http%3A%2F%2Fmkaczanowski.com%2Fwp-content%2Fuploads%2F2014%2F03%2Fresizedimage600667-hwio-beaglebone-ports2.png&imgrefurl=http%3A%2F%2Fmkaczanowski.com%2Fbeaglebone-black-cpp-gpio-library-for-beginners%2F&docid=vYdnVVAfg6gIZM&tbnid=PjIruVGTSKUNvM&vet=1&w=600&h=667
 
 
-
-
+/*
+*   Mapped pins to GPIO:  https://itbrainpower.net/a-gsm/images/BeagleboneBlackP9HeaderTable.pdf
+*   BBB Pins: https://www.google.com.au/search?q=beaglebone+black+p9+header&rlz=1C1CHBF_en-GBAU791AU791&source=lnms&tbm=isch&sa=X&ved=0ahUKEwjyuajz4PjdAhWaa94KHXy-A9QQ_AUIDigB&biw=1920&bih=1096#imgrc=dZVZdK_6zHJOaM:
+*	XC4602 pin     -> BeagleBone Black Pin
+*  	VCC - VDD_3V3B -> pin P9_03 or P9_04
+*  	GND - DGND     -> pin P9_01 or P9_02
+* 	SCL - GPIO1_16 -> pin P9_23
+* 	SD0 - GPIO1_28 -> pin P9_12
+*
+*/
 
 /*
 //Example: Name does not matter for the callback but the form does.. ie return void, and takes one para of char (not char *)
@@ -110,7 +119,7 @@ private:
 	_cbTable *cbTable = NULL;
 	//ISR_data ISR_area_data;
 
-	bool threadRun = true;
+	//bool threadRun = true;
 
 	static void *mainWorkThread(void *appData);
 
