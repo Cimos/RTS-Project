@@ -139,18 +139,30 @@ void keypad_cb(char keypress);
 int main(void)
 {
 	//static _self self;
+	//int error = 0;
 
-	int error = 0;
+
+	pthread_attr_t keyPad_attr;
+	struct sched_param keyPad_param;
+
+    pthread_attr_init(&keyPad_attr);
+    pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
+    keyPad_param.sched_priority = 5;
+    pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
+    pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setstacksize (&keyPad_attr, 8000);
+
+
 
 	keyPad kp;
 	kp.registerCallback(keypad_cb);
-	kp.start();
+	kp.start(&keyPad_attr);
 
 	puts("KeyPad Started");
 
 	while(1)
 	{
-		sleep(100);
+		sleep(1);
 	}
 	///checkIfFileExists("Amp");
 	//writeBoneLeds();
@@ -178,8 +190,9 @@ int main(void)
 
 void keypad_cb(char keypress)
 {
-	puts("Key Pressed");
+	// Warning, cant print in here.
 
+	// Notify thread of new job
 }
 
 
