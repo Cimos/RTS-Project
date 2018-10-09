@@ -19,13 +19,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include "../src/threadTemplate/threadTemplate.h"
 
 //#include "lcdThread.h"
 #include "FT800.h"
 
 #include "file_io.h"
-#include "keyPad.h"
+//#include "keyPad.h"
 #include "debug.h"
 //#include "boneGpio.h"
 
@@ -45,6 +45,9 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/neutrino.h>
+
+#include <sys/iofunc.h>
+#include <sys/dispatch.h>
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
@@ -67,24 +70,18 @@ typedef struct
 
 
 
-//static struct
-//{
-//	int serverPID = 0;
-//	int serverCHID = 0;
-//
-//	FILE *fp = NULL;
-//	char line[255] = {};
-//	char buf[MESSAGESIZE] = {};
-//	int chid = 0;
-//	int errorVal = 0;
-//
-//	//mqd_t qd;
-//
-//	_thread serverThread;
-//
-//}self;
+typedef struct
+{
+	struct _pulse hdr; // Our real data comes after this header
+	int ClientID; // our data (unique id from client)
+	controler2Intersection data;     // our data
+} _data;
 
-
+typedef struct
+{
+	struct _pulse hdr;  // Our real data comes after this header
+    char buf[BUF_SIZE]; // Message we send back to clients to tell them the messages was processed correctly.
+} _reply;
 
 
 enum bus_speed
@@ -101,16 +98,31 @@ typedef struct {
 }I2C_HANDLE;
 
 
-struct _self
+
+static struct
 {
-	I2C_HANDLE I2C_handle = {"/dev/i2c", 0, bus_speed::BAUD_100K};
+	int serverPID = 0;
+	int serverCHID = 0;
+
+	FILE *fp = NULL;
+	char line[255] = {};
+	char buf[MESSAGESIZE] = {};
+	int chid = 0;
+	int errorVal = 0;
+
+	// ******** thread handlers
+	_thread serverThread;
+
+	// ********* I2C
+	I2C_HANDLE I2C_handle = {"/dev/i2c", 1, bus_speed::BAUD_100K};
 	UINT8 slave_addr;
-};
+
+	// ********* IntrSect's
+	controler2Intersection intrSect_1;
+	controler2Intersection intrSect_2;
+}self;
 
 
-/*-----------------------------------------------------------------------------
-* Threads Declarations
-*---------------------------------------------------------------------------*/
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -118,8 +130,8 @@ struct _self
 // Server Host
 void *server(void *chid);
 //void tmp(void);
-
-
+void threadInit(_thread *th);
+void serverInit(void);
 
 
 int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2);
@@ -130,35 +142,39 @@ int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UIN
 
 
 
-void keypad_cb(char keypress);
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
 int main(void)
 {
-	_self self;
 
-	///checkIfFileExists("Amp");
-	//writeBoneLeds();
-	int error = 0;
+//	checkIfFileExists("Amp");
+//	writeBoneLeds();
+//	int error = 0;
+//	UINT8 *tmp = (UINT8*)"Hello World";
+//	error = I2C_Open(&self.I2C_handle, 0, bus_speed::BAUD_100K, 0, 0);
+//	printf("Error %d\n", error);
+//	// 0x23 0x7C
+//	error = I2C_Write(&self.I2C_handle, 0x7C, tmp, sizeof("Hello World"));
+//	printf("Error %d\n", error);
+//	error = I2C_Close(&self.I2C_handle);
+//	printf("Error %d\n", error);
 
-	UINT8 *tmp = (UINT8*)"Hello World";
+
+	noName pingpong;
 
 
 
+	//serverInit();
 
-	error = I2C_Open(&self.I2C_handle, 0, bus_speed::BAUD_100K, 0, 0);
-	printf("Error %d\n", error);
 
-	// 0x23 0x7C
-	error = I2C_Write(&self.I2C_handle, 0x7C, tmp, sizeof("Hello World"));
-	printf("Error %d\n", error);
-
-	error = I2C_Close(&self.I2C_handle);
-
-	printf("Error %d\n", error);
 
 	puts("RTS - Traffic Light Project");
+
+	while(1)
+	{
+		sleep(1);
+	}
 	return EXIT_SUCCESS;
 }
 
@@ -168,91 +184,65 @@ int main(void)
 *---------------------------------------------------------------------------*/
 
 
-void keypad_cb(char keypress)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void threadInit(_thread *th)
 {
-	// Warning, cant print in here.
-	printf("Key %c\n", keypress);
+    pthread_attr_init (&th->attr);
+    pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
+    th->sch_prm.sched_priority = th->priority;
+    pthread_attr_setschedparam (&th->attr, &th->sch_prm);
+    pthread_attr_setinheritsched (&th->attr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setstacksize (&th->attr, 8000);
 }
 
 
+void serverInit(void)
+{
+	DEBUGF("serverInit()->Initializing Server:\n");
+
+	threadInit(&self.serverThread);
+
+	self.serverPID = getpid(); 		// get server process ID
+	self.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
+
+	if (self.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
+	{
+		DEBUGF("serverInit()->Failed to create communication channel on server\n");
+		return;
+	}
+
+	DEBUGF("serverInit()->Writing server details to a file:");
+	DEBUGF("serverInit()->Process ID   : %d \n", self.serverPID);
+	DEBUGF("serverInit()->Channel ID   : %d \n", self.serverCHID);
+
+	write_pid_chid_ToFile(self.serverPID, self.serverCHID, SERVERINFO);
+
+	DEBUGF("serverInit()->Server listening for clients:\n");
 
 
+	pthread_create(&self.serverThread.thread, NULL, server, (void *)&self.serverCHID);
 
+	//server(self.serverCHID);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//
-//
-//
-//void threadInit(_thread *th)
-//{
-//    pthread_attr_init (&th->attr);
-//    pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
-//    th->sch_prm.sched_priority = th->priority;
-//    pthread_attr_setschedparam (&th->attr, &th->sch_prm);
-//    pthread_attr_setinheritsched (&th->attr, PTHREAD_EXPLICIT_SCHED);
-//    pthread_attr_setstacksize (&th->attr, 8000);
-//}
-//
-//
-//void serverInit(void)
-//{
-//	DEBUGF("serverInit()->Initializing Server:\n");
-//
-//	self.serverPID = getpid(); 		// get server process ID
-//	self.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
-//
-//	if (self.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
-//	{
-//		DEBUGF("serverInit()->Failed to create communication channel on server\n");
-//		return;
-//	}
-//
-//	DEBUGF("serverInit()->Writing server details to a file:");
-//	DEBUGF("serverInit()->Process ID   : %d \n", self.serverPID);
-//	DEBUGF("serverInit()->Channel ID   : %d \n", self.serverCHID);
-//
-//	write_pid_chid_ToFile(self.serverPID, self.serverCHID, SERVERINFO);
-//
-//	DEBUGF("serverInit()->Server listening for clients:\n");
-//
-//
-//	pthread_create(&self.serverThread.thread, NULL, server, NULL);
-//
-//	//server(self.serverCHID);
-//
-//	DEBUGF("serverInit()->Finished server Init:\n");
-//	return;
-//}
+	DEBUGF("serverInit()->Finished server Init:\n");
+	return;
+}
 
 
 //TODO: Fix this for appData
@@ -262,96 +252,99 @@ void keypad_cb(char keypress)
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-void *server(void *chid)
+void *server(void *appData)
 {
-//	int rcvid=0, msgnum=0;  	// no message received yet
-//	int Stay_alive=0, living=1;	// server stays running (ignores _PULSE_CODE_DISCONNECT request)
-//    int server_coid = 0, mode = 0;
-//    int read;
-//	my_data msg;
-//	my_reply replymsg; 			// replymsg structure for sending back to client
-//	replymsg.hdr.type = 0x01;
-//	replymsg.hdr.subtype = 0x00;
-//
-//
-//    while (living)
-//    {
-//        // Do your MsgReceive's here now with the chid
-//        rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
-//        DEBUGF("Message Received:\n");
-//
-//        if (rcvid == -1) {
-//        	DEBUGF("Failed to MsgReceive\n");
-//            break;
-//        }
-//        if (rcvid == 0) {
-//            switch (msg.hdr.code){
-//
-//                case _PULSE_CODE_DISCONNECT:
-//                    if( Stay_alive == 0) {
-//                        ConnectDetach(msg.hdr.scoid);
-//                        DEBUGF("Server was told to Detach from ClientID:%d ...\n", msg.ClientID);
-//                        living = 0; // kill while loop
-//                        continue;
-//                    } else {
-//                    	DEBUGF("Server received Detach pulse from ClientID:%d but rejected it ...\n", msg.ClientID);
-//                    }
-//                    break;
-//
-//                case _PULSE_CODE_UNBLOCK:
-//                	DEBUGF("Server got _PULSE_CODE_UNBLOCK after %d, msgnum\n", msgnum);
-//                    break;
-//
-//                case _PULSE_CODE_COIDDEATH:  // from the kernel
-//                	DEBUGF("Server got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
-//                    break;
-//
-//                case _PULSE_CODE_THREADDEATH: // from the kernel
-//                	DEBUGF("Server got _PULSE_CODE_THREADDEATH after %d, msgnum\n", msgnum);
-//                    break;
-//
-//                default: // Some other pulse sent by one of your processes or the kernel
-//                	DEBUGF("Server got some other pulse after %d, msgnum\n", msgnum);
-//                    break;
-//
-//            }
-//            continue;
-//        }
-//
-//        if(rcvid > 0) {
-//            msgnum++;
-//
-//            if (msg.hdr.type == _IO_CONNECT ) {
-//                MsgReply( rcvid, EOK, NULL, 0 );
-//                DEBUGF("gns service is running....\n");
-//                continue;	// go back to top of while loop
-//            }
-//
-//            if (msg.hdr.type > _IO_BASE && msg.hdr.type <= _IO_MAX ) {
-//                MsgError( rcvid, ENOSYS );
-//                DEBUGF("Server received and IO message and rejected it....\n");
-//                continue;	// go back to top of while loop
-//            }
-//
+//    _self *self = (_self*)appData;
+
+	int rcvid=0, msgnum=0;  	// no message received yet
+	int Stay_alive=0, living=1;	// server stays running (ignores _PULSE_CODE_DISCONNECT request)
+    int server_coid = 0, mode = 0;
+    int read;
+
+    int chid = self.chid;
+    _data msg;
+	_reply replymsg; 			// replymsg structure for sending back to client
+	replymsg.hdr.type = 0x01;
+	replymsg.hdr.subtype = 0x00;
+
+
+    while (living)
+    {
+        // Do your MsgReceive's here now with the chid
+        rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+        DEBUGF("Message Received:\n");
+
+        if (rcvid == -1) {
+        	DEBUGF("Failed to MsgReceive\n");
+            break;
+        }
+        if (rcvid == 0) {
+            switch (msg.hdr.code){
+
+                case _PULSE_CODE_DISCONNECT:
+                    if( Stay_alive == 0) {
+                        ConnectDetach(msg.hdr.scoid);
+                        DEBUGF("Server was told to Detach from ClientID:%d ...\n", msg.ClientID);
+                        living = 0; // kill while loop
+                        continue;
+                    } else {
+                    	DEBUGF("Server received Detach pulse from ClientID:%d but rejected it ...\n", msg.ClientID);
+                    }
+                    break;
+
+                case _PULSE_CODE_UNBLOCK:
+                	DEBUGF("Server got _PULSE_CODE_UNBLOCK after %d, msgnum\n", msgnum);
+                    break;
+
+                case _PULSE_CODE_COIDDEATH:  // from the kernel
+                	DEBUGF("Server got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
+                    break;
+
+                case _PULSE_CODE_THREADDEATH: // from the kernel
+                	DEBUGF("Server got _PULSE_CODE_THREAD_DEATH after %d, msgnum\n", msgnum);
+                    break;
+
+                default: // Some other pulse sent by one of your processes or the kernel
+                	DEBUGF("Server got some other pulse after %d, msgnum\n", msgnum);
+                    break;
+
+            }
+            continue;
+        }
+
+        if(rcvid > 0) {
+            msgnum++;
+
+            if (msg.hdr.type == _IO_CONNECT ) {
+                MsgReply( rcvid, EOK, NULL, 0 );
+                DEBUGF("gns service is running....\n");
+                continue;	// go back to top of while loop
+            }
+
+            if (msg.hdr.type > _IO_BASE && msg.hdr.type <= _IO_MAX ) {
+                MsgError( rcvid, ENOSYS );
+                DEBUGF("Server received and IO message and rejected it....\n");
+                continue;	// go back to top of while loop
+            }
+
 //            if (msg.data == 1) { mode = 1; }
 //            else { mode = 0; }
-//
-//            read = readTrafficLightSensor(mode);
-//            replymsg.buf[0] = read + '0';
-//
-//            DEBUGF("Server received data packet with value of '%d' from client (ID:%d)\n", msg.data, msg.ClientID);
-//            fflush(stdout);
-//
-//            DEBUGF("replying with: '%s'\n",replymsg.buf);
-//            MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
-//        }
-//        else
-//        {
-//        	DEBUGF("ERROR: Server received something, but could not handle it correctly\n");
-//        }
-//
-//    }
-    //return 0;
+
+           // read = readTrafficLightSensor(mode);
+            replymsg.buf[0] = read + '0';
+
+            DEBUGF("Server received data packet with value of '%d' from client (ID:%d)\n", msg.data, msg.ClientID);
+            fflush(stdout);
+
+            DEBUGF("replying with: '%s'\n",replymsg.buf);
+            MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
+        }
+        else
+        {
+        	DEBUGF("ERROR: Server received something, but could not handle it correctly\n");
+        }
+
+    }
 	return NULL;
 }
 

@@ -37,7 +37,7 @@
 
 enum trafficLightStates
 {
-    DEFAULT_ = 0,               // Default state for start up
+    DEFAULT_TLS = 0,               // Default state for start up
     NSG,                        // North/South Green
     NSY,                        // North/South Yellow
     NSYG,                       // North/South Turn Green
@@ -56,7 +56,7 @@ enum trafficLightStates
 
 enum trainStationStates
 {
-    DEFAULT_ = 0,               // Default state for start up
+    DEFAULT_TSS = 0,               // Default state for start up
     T1_ARIVING,                 // Line 1 Train Arriving
     T1_DEPARTING,               // Line 1 Train Departing
     T2_ARIVING,                 // Line 2 Train Arriving
@@ -68,13 +68,13 @@ enum trainStationStates
 };
 
 
-typedef struct trafficLightTiming
+typedef struct
 {
     uint8_t nsStright;          // North/South Straight Light timing
     uint8_t nsTurn;             // North/South Turn Light timing
     uint8_t ewStright;          // East/West Straight Light timing
     uint8_t ewTurn;             // East/West Turn Light timing
-};
+}trafficLightTiming;
 
 
 typedef struct _controlHubTointersection
@@ -85,14 +85,14 @@ typedef struct _controlHubTointersection
 }controler2Intersection;
 
 
-typedef struct systemTimeAlignment
+typedef struct
 {
     time_t currentTime;
     time_t morningPeakStart;
     time_t morningPeakFinish;
     time_t eveningPeakStart;
     time_t eveningPeakFinish;
-};
+}systemTimeAlignment;
 
 
 
