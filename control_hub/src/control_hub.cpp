@@ -20,10 +20,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef lcdDebug
+
 //#include "lcdThread.h"
 #include "FT800.h"
-#endif
 
 #include "file_io.h"
 #include "keyPad.h"
@@ -68,27 +67,26 @@ typedef struct
 
 
 
-static struct
-{
-	int serverPID = 0;
-	int serverCHID = 0;
-	
-	FILE *fp = NULL;
-	char line[255] = {};
-	char buf[MESSAGESIZE] = {};
-	int chid = 0;
-	int errorVal = 0;
-	
-	//mqd_t qd;
-
-	_thread serverThread;
-
-}self;
-
-
+//static struct
+//{
+//	int serverPID = 0;
+//	int serverCHID = 0;
+//
+//	FILE *fp = NULL;
+//	char line[255] = {};
+//	char buf[MESSAGESIZE] = {};
+//	int chid = 0;
+//	int errorVal = 0;
+//
+//	//mqd_t qd;
+//
+//	_thread serverThread;
+//
+//}self;
 
 
-#ifdef lcdDebug
+
+
 enum bus_speed
 {
 	BAUD_100K = 100000,
@@ -108,7 +106,7 @@ struct _self
 	I2C_HANDLE I2C_handle = {"/dev/i2c", 0, bus_speed::BAUD_100K};
 	UINT8 slave_addr;
 };
-#endif
+
 
 /*-----------------------------------------------------------------------------
 * Threads Declarations
@@ -119,16 +117,16 @@ struct _self
 *---------------------------------------------------------------------------*/
 // Server Host
 void *server(void *chid);
-void tmp(void);
+//void tmp(void);
 
 
-#ifdef lcdDebug
+
 
 int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2);
 int I2C_Close(I2C_HANDLE *handle);
 int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
 int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
-#endif
+
 
 
 
@@ -138,36 +136,27 @@ void keypad_cb(char keypress);
 *---------------------------------------------------------------------------*/
 int main(void)
 {
-	//static _self self;
-	//int error = 0;
-
-
-	pthread_attr_t keyPad_attr;
-	struct sched_param keyPad_param;
-
-    pthread_attr_init(&keyPad_attr);
-    pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
-    keyPad_param.sched_priority = 5;
-    pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
-    pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
-    pthread_attr_setstacksize (&keyPad_attr, 8000);
-
-
-
+	_self self;
 
 	///checkIfFileExists("Amp");
 	//writeBoneLeds();
+	int error = 0;
 
-
-
-#ifdef lcdDebug
 	UINT8 *tmp = (UINT8*)"Hello World";
+
+
+
+
 	error = I2C_Open(&self.I2C_handle, 0, bus_speed::BAUD_100K, 0, 0);
-	error = I2C_Write(&self.I2C_handle, 0x12, tmp, sizeof("Hello World"));
+	printf("Error %d\n", error);
+
+	// 0x23 0x7C
+	error = I2C_Write(&self.I2C_handle, 0x7C, tmp, sizeof("Hello World"));
+	printf("Error %d\n", error);
+
 	error = I2C_Close(&self.I2C_handle);
-#endif
 
-
+	printf("Error %d\n", error);
 
 	puts("RTS - Traffic Light Project");
 	return EXIT_SUCCESS;
@@ -221,49 +210,49 @@ void keypad_cb(char keypress)
 
 
 
-
-
-
-void threadInit(_thread *th)
-{
-    pthread_attr_init (&th->attr);
-    pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
-    th->sch_prm.sched_priority = th->priority;
-    pthread_attr_setschedparam (&th->attr, &th->sch_prm);
-    pthread_attr_setinheritsched (&th->attr, PTHREAD_EXPLICIT_SCHED);
-    pthread_attr_setstacksize (&th->attr, 8000);
-}
-
-
-void serverInit(void)
-{
-	DEBUGF("serverInit()->Initializing Server:\n");
-
-	self.serverPID = getpid(); 		// get server process ID
-	self.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
-
-	if (self.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
-	{
-		DEBUGF("serverInit()->Failed to create communication channel on server\n");
-		return;
-	}
-
-	DEBUGF("serverInit()->Writing server details to a file:");
-	DEBUGF("serverInit()->Process ID   : %d \n", self.serverPID);
-	DEBUGF("serverInit()->Channel ID   : %d \n", self.serverCHID);
-
-	write_pid_chid_ToFile(self.serverPID, self.serverCHID, SERVERINFO);
-
-	DEBUGF("serverInit()->Server listening for clients:\n");
-	
-	
-	pthread_create(&self.serverThread.thread, NULL, server, NULL);
-
-	//server(self.serverCHID);
-
-	DEBUGF("serverInit()->Finished server Init:\n");
-	return;
-}
+//
+//
+//
+//void threadInit(_thread *th)
+//{
+//    pthread_attr_init (&th->attr);
+//    pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
+//    th->sch_prm.sched_priority = th->priority;
+//    pthread_attr_setschedparam (&th->attr, &th->sch_prm);
+//    pthread_attr_setinheritsched (&th->attr, PTHREAD_EXPLICIT_SCHED);
+//    pthread_attr_setstacksize (&th->attr, 8000);
+//}
+//
+//
+//void serverInit(void)
+//{
+//	DEBUGF("serverInit()->Initializing Server:\n");
+//
+//	self.serverPID = getpid(); 		// get server process ID
+//	self.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
+//
+//	if (self.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
+//	{
+//		DEBUGF("serverInit()->Failed to create communication channel on server\n");
+//		return;
+//	}
+//
+//	DEBUGF("serverInit()->Writing server details to a file:");
+//	DEBUGF("serverInit()->Process ID   : %d \n", self.serverPID);
+//	DEBUGF("serverInit()->Channel ID   : %d \n", self.serverCHID);
+//
+//	write_pid_chid_ToFile(self.serverPID, self.serverCHID, SERVERINFO);
+//
+//	DEBUGF("serverInit()->Server listening for clients:\n");
+//
+//
+//	pthread_create(&self.serverThread.thread, NULL, server, NULL);
+//
+//	//server(self.serverCHID);
+//
+//	DEBUGF("serverInit()->Finished server Init:\n");
+//	return;
+//}
 
 
 //TODO: Fix this for appData
@@ -396,107 +385,107 @@ void *server(void *chid)
 
 
 
-//
-///*
-// * @breif: use to open and init i2c port
-// * @ret: returns error code
-// *
-// */
-//int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2)
-//{
-//	int error = 0;
-//	//_Uint32t speed = 10000; // nice and slow (will work with 200000)
-//	//i2c_addr_t address;
-//	//address.fmt = I2C_ADDRFMT_7BIT;
-//	//address.addr = 0x90;
-//
-//	if (port > 1 || port < 0)
-//	{ return -1; }
-//
-//	handle->devName[8] = ('0' + port);
-//	handle->bus_speed = i2cFrequency;
-//
-//	if ((handle->fd = open("/dev/i2c1", O_RDWR)) < 0)
-//	{ return -1; }
-//
-//	return devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(i2cFrequency), sizeof(i2cFrequency), NULL);
-//	//fprintf(stderr, "Error setting the I2C bus speed: %s\n",strerror ( error ));
-//
-//
-//	//error = devctl(handle->fd,DCMD_I2C_SET_SLAVE_ADDR,&address,sizeof(address),NULL);
-//
-//	//fprintf(stderr, "Error setting the slave address: %s\n",strerror ( error ));
-//
-//	//return error;
-//}
-//
-///*
-// * @breif: use to close i2c port
-// * @ret: returns error code
-// *
-// */
-//int I2C_Close(I2C_HANDLE *handle)
-//{
-//	return close(handle->fd);
-//}
-//
-///*
-// * @breif: use to write data to a i2c salve
-// * @ret: returns error code
-// *
-// * @note: addr is not address of slave but address of register at slave
-// *
-// */
-//int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size)
-//{
-//	i2c_send_t hdr;
-//	iov_t siov[2];
-//
-//	hdr.slave.addr = addr;
-//	hdr.slave.fmt = I2C_ADDRFMT_7BIT;
-//	hdr.len = size;
-//	hdr.stop = 1;
-//
-//	SETIOV(&siov[0], &hdr, sizeof(hdr));
-//	SETIOV(&siov[1], &data[0], size);
-//
-//
-//	int error = devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
-//
-//	fprintf(stderr, "Error sendding i2c msg: %s\n",strerror ( error ));
-//
-//	return 0;
-//}
-//
-///*
-// * @breif: use to write then read a i2c salve.. i.e. reading a register from the slave
-// * @ret: returns error code
-// *
-// * @note: addr is not address of slave but address of register at slave
-// *
-// */
-//int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2)
-//{
-//	i2c_sendrecv_t  hdr;
-//	iov_t siov[2] = {};
-//	iov_t riov[2] = {};
-//
-//    hdr.slave.addr = addr;
-//    hdr.slave.fmt = I2C_ADDRFMT_7BIT;
-//    hdr.send_len = size;
-//    hdr.recv_len = size2;
-//    hdr.stop = 1;
-//
-//    SETIOV(&siov[0], &hdr, sizeof(hdr));	// setup siov
-//    SETIOV(&siov[1], &sndBuf[0], size);
-//
-//    SETIOV(&riov[0], &hdr, sizeof(hdr));	// setup riov
-//    SETIOV(&riov[1], retBuf, size2);
-//
-//    // return success??
-//	return devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
-//
-//	return 0;
-//}
-//
+
+/*
+ * @breif: use to open and init i2c port
+ * @ret: returns error code
+ *
+ */
+int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2)
+{
+	int error = 0;
+	//_Uint32t speed = 10000; // nice and slow (will work with 200000)
+	//i2c_addr_t address;
+	//address.fmt = I2C_ADDRFMT_7BIT;
+	//address.addr = 0x90;
+
+	if (port > 1 || port < 0)
+	{ return -1; }
+
+	handle->devName[8] = ('0' + port);
+	handle->bus_speed = i2cFrequency;
+
+	if ((handle->fd = open(handle->devName, O_RDWR)) < 0)
+	{ return -1; }
+
+	error = devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(i2cFrequency), sizeof(i2cFrequency), NULL);
+	fprintf(stderr, "Error setting the I2C bus speed: %s\n",strerror ( error ));
+
+	return error;
+	//error = devctl(handle->fd,DCMD_I2C_SET_SLAVE_ADDR,&address,sizeof(address),NULL);
+
+	//fprintf(stderr, "Error setting the slave address: %s\n",strerror ( error ));
+
+	//return error;
+}
+
+/*
+ * @breif: use to close i2c port
+ * @ret: returns error code
+ *
+ */
+int I2C_Close(I2C_HANDLE *handle)
+{
+	return close(handle->fd);
+}
+
+/*
+ * @breif: use to write data to a i2c salve
+ * @ret: returns error code
+ *
+ * @note: addr is not address of slave but address of register at slave
+ *
+ */
+int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size)
+{
+	i2c_send_t hdr;
+	iov_t siov[2];
+
+	hdr.slave.addr = addr;
+	hdr.slave.fmt = I2C_ADDRFMT_7BIT;
+	hdr.len = size;
+	hdr.stop = 1;
+
+	SETIOV(&siov[0], &hdr, sizeof(hdr));
+	SETIOV(&siov[1], &data[0], size);
+
+
+	int error = devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
+
+	fprintf(stderr, "Error sending i2c msg: %s\n",strerror ( error ));
+
+	return 0;
+}
+
+/*
+ * @breif: use to write then read a i2c salve.. i.e. reading a register from the slave
+ * @ret: returns error code
+ *
+ * @note: addr is not address of slave but address of register at slave
+ *
+ */
+int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2)
+{
+	i2c_sendrecv_t  hdr;
+	iov_t siov[2] = {};
+	iov_t riov[2] = {};
+
+    hdr.slave.addr = addr;
+    hdr.slave.fmt = I2C_ADDRFMT_7BIT;
+    hdr.send_len = size;
+    hdr.recv_len = size2;
+    hdr.stop = 1;
+
+    SETIOV(&siov[0], &hdr, sizeof(hdr));	// setup siov
+    SETIOV(&siov[1], &sndBuf[0], size);
+
+    SETIOV(&riov[0], &hdr, sizeof(hdr));	// setup riov
+    SETIOV(&riov[1], retBuf, size2);
+
+    // return success??
+	return devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
+
+	return 0;
+}
+
 
