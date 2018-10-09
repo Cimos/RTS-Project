@@ -10,6 +10,6 @@
 
 
 
-
+#define MESSAGESIZE 12
 
 #endif /* CONTROL_HUB_H_ */

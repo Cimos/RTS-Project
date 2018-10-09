@@ -25,7 +25,7 @@
 * Included Files
 *---------------------------------------------------------------------------*/
 
-#include "../../public/debug.h"
+//#include "../../public/debug.h"
 
 #include <stdint.h>        // for unit32 types
 #include <stdlib.h>
@@ -47,7 +47,7 @@ typedef struct
 }ISR_data;
 
 
-typedef struct _cbTable
+ struct _cbTable
 {
 	void (*cb)(char);
 	struct _cbTable *head;
@@ -70,9 +70,11 @@ private:
 
 
 	_cbTable *cbTable = NULL;
-	ISR_data ISR_area_data;
+	//ISR_data ISR_area_data;
 
 	bool threadRun = true;
+
+	static void *mainWorkThread(void *appData);
 
 
 
@@ -88,7 +90,7 @@ public:
     keyPad();
     ~keyPad();
 
-    void start(pthread_attr_t *_threadAttr);
+    void start(pthread_attr_t *_threadAttr = NULL);
     void stop();
 
     bool registerCallback(void (*_cb)(char));

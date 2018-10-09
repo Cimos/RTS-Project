@@ -52,8 +52,8 @@
 #define LED2          (1<<23)   // GPIO1_23
 #define LED3          (1<<24)   // GPIO1_24
 
-#define SD0 (1<<28)  // SD0 is connected to GPIO1_28
-#define SCL (1<<16)  // SCL is connected to GPIO1_16
+#define SD0 (1<<28)  // SD0 is connected to GPIO1_28		pin 12
+#define SCL (1<<17)  // SCL is connected to GPIO1_17		pin 23
 
 
 #define GPIO_OE        0x134
@@ -150,7 +150,6 @@ typedef union _CONF_MODULE_PIN_STRUCT   // See TRM Page 1420
 * Local non-member Function Declarations
 *----------------------------------------------------------------------------*/
 
-void *mainWorkThread(void *appData);
 const struct sigevent* Inthandler( void* area, int id );
 uint32_t KeypadReadIObit(uintptr_t gpio_base, uint32_t BitsToRead);
 char DecodeKeyValue(uint32_t word);
@@ -212,7 +211,7 @@ keyPad::~keyPad()
  *	@breif:  											*
  *	@return:                                 			*
  * ---------------------------------------------------	*/
-void keyPad::start(pthread_attr_t *_threadAttr = NULL)
+void keyPad::start(pthread_attr_t *_threadAttr)
 {
 	// Do not need to lock because other thread isnt even running yet
 	threadRun = true;
@@ -221,7 +220,7 @@ void keyPad::start(pthread_attr_t *_threadAttr = NULL)
 	{ memcpy(workerThreadAttr, _threadAttr, sizeof(pthread_attr_t)); }
 
 	// create and run thread
-	pthread_create(workerThread, _threadAttr, mainWorkThread, NULL);
+	pthread_create(workerThread, _threadAttr, mainWorkThread, (void*)this);
 }
 
 
@@ -237,7 +236,6 @@ void keyPad::stop()
 	threadRun = false;
 	Unlock();
 }
-  
 
 
 /* ----------------------------------------------------	*
@@ -264,7 +262,7 @@ bool keyPad::registerCallback(void (*_cb)(char))
 		// If malloc fails
 		if (cbTable == NULL)
 		{
-			DEBUGF("Malloc failed to allocate memory:\n");
+			//DEBUGF("Malloc failed to allocate memory:\n");
 			Unlock();
 			return false;  // return failure
 		}
@@ -272,11 +270,11 @@ bool keyPad::registerCallback(void (*_cb)(char))
 		// if a null pointer was given when calling the function
 		if (_cb == NULL)
 		{
-			DEBUGF("The given cb was null:\n");
+			//DEBUGF("The given cb was null:\n");
 			return false;  // return failure
 		}
 
-		DEBUGF("The cb was registered:\n");
+		//DEBUGF("The cb was registered:\n");
 
 		//cbTable->head = cbTable;
 		Lock();
@@ -298,14 +296,13 @@ bool keyPad::registerCallback(void (*_cb)(char))
 	//		}
 	//	}
 
-	DEBUGF("A cb was already registered:\n");
-	DEBUGF("Multiple cb table is not supported yet:\n");
+	//DEBUGF("A cb was already registered:\n");
+	//DEBUGF("Multiple cb table is not supported yet:\n");
 
 
 	// return failure
 	return false;
 }
-
 
 
 /* ----------------------------------------------------	*
@@ -346,20 +343,20 @@ bool keyPad::deregisterCallback(void (*_cb)(char))
 		// if a null pointer was given when calling the function
 		if (_cb == NULL)
 		{
-			DEBUGF("The given cb was null:\n");
+			//DEBUGF("The given cb was null:\n");
 			return false;  // return failure
 		}
 
 		// checking if the function given is the same as when registered
 		if (_cb != cbTable->cb)
 		{
-			DEBUGF("The given cb didnt match the cb in the table:\n");
+			//DEBUGF("The given cb didnt match the cb in the table:\n");
 			return false;  // return failure
 		}
 
 		Lock();
 		cbTable->cb = NULL;	// remove the function from the cb pointer
-		DEBUGF("The cb was de-registered:\n");
+		//DEBUGF("The cb was de-registered:\n");
 		free(cbTable);	// free the memory
 		Unlock();
 
@@ -413,67 +410,67 @@ char DecodeKeyValue(uint32_t word)
 	switch(word)
 	{
 		case 0x01:
-			DEBUGF("Key  1 pressed:\n");
+			//DEBUGF("Key  1 pressed:\n");
 			ret = '1';
 			break;
 		case 0x02:
-			DEBUGF("Key  2 pressed:\n");
+			//DEBUGF("Key  2 pressed:\n");
 			ret = '2';
 			break;
 		case 0x04:
-			DEBUGF("Key  3 pressed:\n");
+			//DEBUGF("Key  3 pressed:\n");
 			ret = '3';
 			break;
 		case 0x08:
-			DEBUGF("Key  4 pressed:\n");
+			//DEBUGF("Key  4 pressed:\n");
 			ret = '4';
 			break;
 		case 0x10:
-			DEBUGF("Key  5 pressed:\n");
+			//DEBUGF("Key  5 pressed:\n");
 			ret = '5';
 			break;
 		case 0x20:
-			DEBUGF("Key  6 pressed:\n");
+			//DEBUGF("Key  6 pressed:\n");
 			ret = '6';
 			break;
 		case 0x40:
-			DEBUGF("Key  7 pressed:\n");
+			//DEBUGF("Key  7 pressed:\n");
 			ret = '7';
 			break;
 		case 0x80:
-			DEBUGF("Key  8 pressed:\n");
+			//DEBUGF("Key  8 pressed:\n");
 			ret = '8';
 			break;
 		case 0x100:
-			DEBUGF("Key  9 pressed:\n");
+			//DEBUGF("Key  9 pressed:\n");
 			ret = '9';
 			break;
 		case 0x200:
-			DEBUGF("Key 10 pressed:\n");
+			//DEBUGF("Key 10 pressed:\n");
 			ret = 'A';
 			break;
 		case 0x400:
-			DEBUGF("Key 11 pressed:\n");
+			//DEBUGF("Key 11 pressed:\n");
 			ret = 'B';
 			break;
 		case 0x800:
-			DEBUGF("Key 12 pressed:\n");
+			//DEBUGF("Key 12 pressed:\n");
 			ret = 'C';
 			break;
 		case 0x1000:
-			DEBUGF("Key 13 pressed:\n");
+			//DEBUGF("Key 13 pressed:\n");
 			ret = 'D';
 			break;
 		case 0x2000:
-			DEBUGF("Key 14 pressed:\n");
+			//DEBUGF("Key 14 pressed:\n");
 			ret = 'E';
 			break;
 		case 0x4000:
-			DEBUGF("Key 15 pressed:\n");
+			//DEBUGF("Key 15 pressed:\n");
 			ret = 'F';
 			break;
 		case 0x8000:
-			DEBUGF("Key 16 pressed:\n");
+			//DEBUGF("Key 16 pressed:\n");
 			ret = 'G';
 
 			// TODO: is this needed?
@@ -482,7 +479,7 @@ char DecodeKeyValue(uint32_t word)
 		case 0x00:  // key release event (do nothing)
 			break;
 		default:
-			DEBUGF("Could not decode key press:\n");
+			//DEBUGF("Could not decode key press:\n");
 			ret = 0;
 	}
 	return ret;
@@ -516,8 +513,7 @@ void strobe_SCL(uintptr_t gpio_port_add) {
  			correct for BBB								*
  *	@return:         		                        	*
  * ---------------------------------------------------	*/
-void delaySCL()  
-{
+void delaySCL()  {// Small delay used to get timing correct for BBB
   volatile int i, a;
   for(i=0;i<0x1F;i++) // 0x1F results in a delay that sets F_SCL to ~480 kHz
   {   // i*1 is faster than i+1 (i+1 results in F_SCL ~454 kHz, whereas i*1 is the same as a=i)
@@ -535,22 +531,21 @@ void delaySCL()
  *	@breif:  											*
  *	@return:         		                        	*
  * ---------------------------------------------------	*/
+ ISR_data ISR_area_data;
+
 const struct sigevent* Inthandler( void* area, int id )
 {
-	/*
-	*			** CAUTION IN ISR ** 
-	*/
-
+	// 	"Do not call any functions in ISR that call kernerl - including printf()
+	//struct sigevent *pevent = (struct sigevent *) area;
 	ISR_data *p_ISR_data = (ISR_data *) area;
 
 	InterruptMask(GPIO1_IRQ, id);  // Disable all hardware interrupt
 
-	//clear IRQ or stack over flow or system will crash
-	out32(p_ISR_data->gpio1_base + GPIO_IRQSTATUS_1, SD0);
+	// must do this in the ISR  (else stack over flow and system will crash
+	out32(p_ISR_data->gpio1_base + GPIO_IRQSTATUS_1, SD0); //clear IRQ
 
-	// counter for isr
+	// do this to tell us how many times this handler gets called
 	p_ISR_data->count_thread++;
-
 	// got IRQ.
 	// work out what it came from
 
@@ -563,65 +558,75 @@ const struct sigevent* Inthandler( void* area, int id )
 }
 
 
+
 /* ----------------------------------------------------	*
  *	@getMsgQueId mainWorkThread:						*
  *	@breif:  											*
  *	@return:         		                        	*
  * ---------------------------------------------------	*/
-void* mainWorkThread(void *appData)
+void* keyPad::mainWorkThread(void *appData)
 {
 	_cbTable *cbTable = NULL;
 	keyPad *KeyPad = (keyPad *) appData;
 	bool tempkA = false;
 	int i = 0;
-	int intWait_error = 0;
     int id = 0; // Attach interrupt Event to IRQ for GPIO1B  (upper 16 bits of port)
 	char key = 0;
 
-    uint32_t val = 0;
-	volatile uint32_t word = 0;
-   	uint64_t timeoutSetTime = 1000000000;   
-	uint64_t timeoutRemTime = 0;
-    struct sigevent event;
-	struct sigevent timerEvent;
+    volatile _CONF_MODULE_PIN pinConfigGPMC; // Pin configuration strut
 
-	uintptr_t control_module = 0;
-	uintptr_t gpio1_base = 0;
+    volatile uint32_t val = 0;
+	volatile uint32_t word = 0;
+	//	uint64_t timeoutSetTime = 1000000000;
+	//	uint64_t timeoutRemTime = 0;
+	//	struct sigevent timerEvent;
+
+
 
 	if (KeyPad != NULL)
 	{
 		cbTable = KeyPad->getCallback();
 	}
 
-	control_module = mmap_device_io(AM335X_CONTROL_MODULE_SIZE,AM335X_CONTROL_MODULE_BASE);
-	gpio1_base = mmap_device_io(AM335X_GPIO_SIZE, AM335X_GPIO1_BASE);
+	uintptr_t control_module = mmap_device_io(AM335X_CONTROL_MODULE_SIZE,AM335X_CONTROL_MODULE_BASE);
+	uintptr_t gpio1_base = mmap_device_io(AM335X_GPIO_SIZE, AM335X_GPIO1_BASE);
+
+
+	// initalise the global stuct
+	ISR_area_data.count_thread = 0;
+	ISR_area_data.gpio1_base = gpio1_base;
+
+
+	memset(&ISR_area_data.pevent, 0, sizeof(ISR_area_data.pevent));
+	SIGEV_INTR_INIT (&ISR_area_data.pevent);
+	ISR_area_data.pevent.sigev_notify = SIGEV_INTR;  // Setup for external interrupt
+
 
 	if( (control_module)&&(gpio1_base) )
 	{
 
-		ThreadCtl( _NTO_TCTL_IO_PRIV , NULL);// Request I/O privileges;
 
-	    // set DDR for GPIO_28 to input
+	    // set DDR for LEDs to output and GPIO_28 to input
 	    val = in32(gpio1_base + GPIO_OE); // read in current setup for GPIO1 port
 	    val |= 1<<28;                     // set IO_BIT_28 high (1=input, 0=output)
 	    out32(gpio1_base + GPIO_OE, val); // write value to input enable for data pins
+	    val &= ~(LED0|LED1|LED2|LED3);    // write value to output enable
+	    out32(gpio1_base + GPIO_OE, val); // write value to output enable for LED pins
 
-		// Making the scl pin a output so that we can manually clock in the data.
 	    val = in32(gpio1_base + GPIO_OE);
 	    val &= ~SCL;                      // 0 for output
 	    out32(gpio1_base + GPIO_OE, val); // write value to output enable for data pins
 
-		// write scl high
+
 	    val = in32(gpio1_base + GPIO_DATAOUT);
 	    val |= SCL;              // Set Clock Line High as per TTP229-BSF datasheet
 	    out32(gpio1_base + GPIO_DATAOUT, val); // for 16-Key active-Low timing diagram
 
 
-	    in32s(&val, 1, control_module + P9_12_pinConfig );
-	    DEBUGF("Original pinmux configuration for GPIO1_28 = %#010x\n", val);
+	    in32s((void*)&val, 1, control_module + P9_12_pinConfig );
+	    printf("Original pinmux configuration for GPIO1_28 = %#010x\n", val);
 
 	    // set up pin mux for the pins we are going to use  (see page 1354 of TRM)
-	    volatile _CONF_MODULE_PIN pinConfigGPMC; // Pin configuration strut
 	    pinConfigGPMC.d32 = 0;
 	    // Pin MUX register default setup for input (GPIO input, disable pull up/down - Mode 7)
 	    pinConfigGPMC.b.conf_slewctrl = SLEW_SLOW;    // Select between faster or slower slew rate
@@ -632,25 +637,77 @@ void* mainWorkThread(void *appData)
 
 	    // Write to PinMux registers for the GPIO1_28
 	    out32(control_module + P9_12_pinConfig, pinConfigGPMC.d32);
-	    in32s(&val, 1, control_module + P9_12_pinConfig);   // Read it back
-	    DEBUGF("New configuration register for GPIO1_28 = %#010x\n", val);
+	    in32s((void*)&val, 1, control_module + P9_12_pinConfig);   // Read it back
+	    printf("New configuration register for GPIO1_28 = %#010x\n", val);
 
 	    // Setup IRQ for SD0 pin ( see TRM page 4871 for register list)
-	    out32(gpio1_base + GPIO_IRQSTATUS_SET_1, SD0);// Write 1 to GPIO_IRQSTATUS_SET_1
-	    out32(gpio1_base + GPIO_IRQWAKEN_1, SD0);    // Write 1 to GPIO_IRQWAKEN_1
+	    out32(gpio1_base + GPIO_IRQSTATUS_SET_1, SD0);	// Write 1 to GPIO_IRQSTATUS_SET_1
+	    out32(gpio1_base + GPIO_IRQWAKEN_1, SD0);    	// Write 1 to GPIO_IRQWAKEN_1
 	    out32(gpio1_base + GPIO_FALLINGDETECT, SD0);    // set falling edge
 	    out32(gpio1_base + GPIO_CLEARDATAOUT, SD0);     // clear GPIO_CLEARDATAOUT
 	    out32(gpio1_base + GPIO_IRQSTATUS_1, SD0);      // clear any prior IRQs
 
-	    memset(&event, 0, sizeof(struct sigevent));
-	    event.sigev_notify = SIGEV_INTR;  // Setup for external interrupt
+	    int errvalue = 0;
+	    errno = EOK;
+	    printf( "The error generated was %d\n", errvalue );
 
-	    id = InterruptAttachEvent(GPIO1_IRQ, &event, _NTO_INTR_FLAGS_TRK_MSK);
+	    id = InterruptAttach (GPIO1_IRQ, Inthandler, &ISR_area_data, sizeof(ISR_area_data), _NTO_INTR_FLAGS_TRK_MSK );
+
+	    errvalue = errno;
+	    printf( "The error generated was %d\n", errvalue );
+	    printf( "That means: %s\n", strerror( errvalue ) );
+	    if (id == -1)
+	    {
+	    	return NULL;
+	    }
+	    InterruptUnmask(GPIO1_IRQ, id);  // Enable a hardware interrupt
+
+	    int i = 0;
+	    printf( "Main entering loop and will call InterruptWait\n");
+	    for(;;)
+	    {
+	    	// Block main until we get a sigevent of type: 	ISR_area_data.pevent
+	    	InterruptWait( 0, NULL );   // block this thread until an interrupt occurs  (Wait for a hardware interrupt)
+
+	    	// printf("do interrupt work here...\n");
+
+	    	volatile uint32_t word = 0;
+	    	//  confirm that SD0 is still low (that is a valid Key press event has occurred)
+	    	val = KeypadReadIObit(gpio1_base, SD0);  // read SD0 (means data is ready)
+
+	    	if(val == 0)  // start reading key value form the keypad
+	    	{
+	    		word = 0;  // clear word variable
+
+	    		delaySCL(); // wait a short period of time before reading the data Tw  (10 us)
+
+	    		for(i=0;i<16;i++)           // get data from SD0 (16 bits)
+	    		{
+	    			strobe_SCL(gpio1_base);  // strobe the SCL line so we can read in data bit
+
+	    			val = KeypadReadIObit(gpio1_base, SD0); // read in data bit
+	    			val = ~val & 0x01;                      // invert bit and mask out everything but the LSB
+	    			//printf("val[%u]=%u, ",i, val);
+	    			word = word | (val<<i);  // add data bit to word in unique position (build word up bit by bit)
+	    		}
+	    		//printf("word=%u\n",word);
+	    		DecodeKeyValue(word);
+
+	    		printf("Interrupt count = %i\n", ISR_area_data.count_thread);
+	    	}
+
+
+	    		//sched_yield();
+	    }
 	}
 
 
-    DEBUGF("HW Interrupt setup for keyPad:\n");
+
+    //id = InterruptAttach (GPIO1_IRQ, Inthandler, &ISR_area_data, sizeof(ISR_area_data), _NTO_INTR_FLAGS_TRK_MSK );
+
+    //DEBUGF("HW Interrupt setup for keyPad:\n");
  	
+    InterruptUnmask(GPIO1_IRQ, id);  // Enable a hardware interrupt
 
 	do
 	{
@@ -664,21 +721,14 @@ void* mainWorkThread(void *appData)
 	}
 
 	// TODO: Check if re-assigning their values are nedded
-	SIGEV_INTR_INIT(&timerEvent);
-	timeoutSetTime = 1000000000;   // One seconds in nano-secs
-	timeoutRemTime = 0;
+	//	SIGEV_INTR_INIT(&timerEvent);
+	//	timeoutSetTime = 1000000000;   // One seconds in nano-secs
+	//	timeoutRemTime = 0;
 
 	// Timeout
-   	TimerTimeout_r(CLOCK_REALTIME, _NTO_TIMEOUT_INTR, &timerEvent, &timeoutSetTime, &timeoutRemTime);
-	intWait_error = InterruptWait(0, NULL);
+   	//errorInTimer = TimerTimeout_r(CLOCK_REALTIME, _NTO_TIMEOUT_INTR, &timerEvent, &timeoutSetTime, &timeoutRemTime);
+	InterruptWait(0, NULL);
 
-	// Something else interrupted the wait 
-	if (intWait_error < 0)
-	{
-		continue;
-	}
-
-	InterruptDisable();
 
 	//  confirm that SD0 is still low (that is a valid Key press event has occurred)
 	val = KeypadReadIObit(gpio1_base, SD0);  // read SD0 (means data is ready)
@@ -698,17 +748,13 @@ void* mainWorkThread(void *appData)
 		//printf("val[%u]=%u, ",i, val);
 		word = word | (val<<i);  // add data bit to word in unique position (build word up bit by bit)
 		}
-		//printf("word=%u\n",word);
+		//puts("word=%u\n",word);
 		key = DecodeKeyValue(word);
 		if (cbTable->cb != NULL)
 		{
 			cbTable->cb(key);
 		}
 	}
-	out32(gpio1_base + GPIO_IRQSTATUS_1, SD0); //clear IRQ
-	InterruptUnmask(GPIO1_IRQ, id);
-	InterruptEnable();
-
 
 	} while(1);
 
