@@ -139,7 +139,9 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
 int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
 
 
-
+int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t NbData);
+#define Co_Ctrl   0x00  // mode to tell LCD we are sending a single command
+#define DATA_SEND 0x40  // sets the Rs value high
 
 /*-----------------------------------------------------------------------------
 * Main Function
@@ -149,21 +151,46 @@ int main(void)
 
 	int error = 0;
 
+	int file;
+	volatile uint8_t LCDi2cAdd = 0x3C;	// i2c address
+	uint8_t	LCDcontrol = 0x00;
 
-	UINT8 *tmp = (UINT8*)"Hello World";
-	error = I2C_Open(&self.I2C_handle, 1, 20000, 0, 0);
-	printf("Error %d\n", error);
-	// 0x23 0x7C
 
-	while (1)
+	if ((file = open("/dev/i2c1",O_RDWR)) < 0)	  // OPEN I2C1
 	{
-	error = I2C_Write(&self.I2C_handle, 0x23, tmp, sizeof("Hello World"));
-	printf("Error %d\n", error);
-	sleep(1);
+		printf("Error while opening Device File.!!\n");
+		exit(EXIT_FAILURE);
 	}
 
-	error = I2C_Close(&self.I2C_handle);
-	printf("Error %d\n", error);
+
+
+	_Uint32t speed = 10000; // nice and slow (will work with 200000)
+
+	error = devctl(file,DCMD_I2C_SET_BUS_SPEED,&(speed),sizeof(speed),NULL);  // Set Bus speed
+
+	LCDcontrol = 0x38;  // data byte for FUNC_SET_TBL1
+
+
+	while(1)
+	{
+		I2cWrite_(file, LCDi2cAdd, Co_Ctrl, &LCDcontrol, 1);		// write data to I2C
+
+		usleep(500);
+	}
+
+//	UINT8 *tmp = (UINT8*)"Hello World";
+//	error = I2C_Open(&self.I2C_handle, 1, 20000, 0, 0);
+//	printf("Error %d\n", error);
+//	// 0x23 0x7C
+//	while (1)
+//	{
+//	error = I2C_Write(&self.I2C_handle, 0x23<<1, tmp, sizeof("Hello World"));
+//	printf("Error %d\n", error);
+//	sleep(1);
+//	}
+//
+//	error = I2C_Close(&self.I2C_handle);
+//	printf("Error %d\n", error);
 
 
 	//serverInit();
@@ -184,6 +211,38 @@ int main(void)
 *---------------------------------------------------------------------------*/
 
 
+
+// Writes to I2C
+int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t NbData)
+{
+	i2c_send_t hdr;
+    iov_t sv[2];
+    int status, i;
+
+    uint8_t LCDpacket[21] = {};  // limited to 21 characters  (1 control bit + 20 bytes)
+
+    // set the mode for the write (control or data)
+    LCDpacket[0] = mode;  // set the mode (data or control)
+
+	// copy data to send to send buffer (after the mode bit)
+	for (i=0;i<NbData+1;i++)
+		LCDpacket[i+1] = *pBuffer++;
+
+    hdr.slave.addr = Address;
+    hdr.slave.fmt = I2C_ADDRFMT_7BIT;
+    hdr.len = NbData + 1;  // 1 extra for control (mode) bit
+    hdr.stop = 1;
+
+    SETIOV(&sv[0], &hdr, sizeof(hdr));
+    SETIOV(&sv[1], &LCDpacket[0], NbData + 1); // 1 extra for control (mode) bit
+      // int devctlv(int filedes, int dcmd,     int sparts, int rparts, const iov_t *sv, const iov_t *rv, int *dev_info_ptr);
+    status = devctlv(fd, 		  DCMD_I2C_SEND, 2,          0,          sv,              NULL,           NULL);
+
+    if (status != EOK)
+    	printf("status = %s\n", strerror ( status ));
+
+    return status;
+}
 
 
 
