@@ -4,17 +4,17 @@
         <item id="com.qnx.tools.ide.target">
             <connection>
                 <ENDIAN value="le"/>
-                <VERSION value="2017/02/14-16:14:20EST"/>
+                <VERSION value="2018/02/06-14:44:04EST"/>
                 <ARCHITECTURE value="armle"/>
                 <MACHINE value="AM335X_BeagleBone"/>
                 <DOMAIN value="net.intra"/>
                 <SYSNAME value="QNX"/>
                 <CPU value="armle"/>
                 <HASVERSION value="1"/>
-                <HOSTNAME value="RMIT_BBB_v5p1_user"/>
+                <HOSTNAME value="BBB_Stekla"/>
                 <OS value="nto"/>
                 <QCONN_VERSION value="1.4.207944"/>
-                <RELEASE value="7.0.0"/>
+                <RELEASE value="7.0.1"/>
                 <NUM_SRVCS value="1"/>
             </connection>
             <qconnostype value="nto"/>

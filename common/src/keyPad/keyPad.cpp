@@ -591,10 +591,9 @@ void* keyPad::mainWorkThread(void *appData)
 
     volatile uint32_t val = 0;
 	volatile uint32_t word = 0;
-		uint64_t timeoutSetTime = 1000000000;
-		uint64_t timeoutRemTime = 0;
-		struct sigevent timerEvent;
-
+	uint64_t timeoutSetTime = 1000000000;
+	uint64_t timeoutRemTime = 0;
+	struct sigevent timerEvent;
 
 
 	if (KeyPad != NULL)
@@ -638,7 +637,6 @@ void* keyPad::mainWorkThread(void *appData)
 		val = in32(gpio1_base + GPIO_DATAOUT);
 		val |= SCL;              // Set Clock Line High as per TTP229-BSF datasheet
 		out32(gpio1_base + GPIO_DATAOUT, val); // for 16-Key active-Low timing diagram
-
 
 		in32s((void*)&val, 1, control_module + P9_12_pinConfig );
 		//DEBUGF("Original pinmux configuration for GPIO1_28 = %#010x\n", val);
