@@ -492,7 +492,6 @@ char DecodeKeyValue(uint32_t word)
 			ret = 'G';
 			break;
 		case 0x00:  // key release event (do nothing)
-			break;
 		default:
 			//DEBUGF("Could not decode key press:\n");
 			ret = 0;
