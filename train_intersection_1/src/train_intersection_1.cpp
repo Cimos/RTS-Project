@@ -17,6 +17,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <keyPad.h>
+#include <iostream>
+
+using namespace std;
 
 /*-----------------------------------------------------------------------------
 * Definitions
@@ -56,8 +60,32 @@ void trainStateMachine();
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
+void keypad_cb(char keypress);
 
 int main() {
+
+ 	pthread_attr_t keyPad_attr;
+	struct sched_param keyPad_param;
+    pthread_attr_init(&keyPad_attr);
+    pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
+    keyPad_param.sched_priority = 5;
+    pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
+    pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setstacksize (&keyPad_attr, 8000);
+
+
+	keyPad kp;
+	kp.registerCallback(keypad_cb);
+	// Note: can do kp.start() which will just give it default attributes and priority
+	kp.start(&keyPad_attr);
+
+
+	while(1){
+
+
+		sleep(1);
+	}
+
 
 	printf("Welcome: Road railway crossing state machine\n");
 
@@ -65,6 +93,11 @@ int main() {
 
 	printf("\nMain Terminating...\n");
 	return EXIT_SUCCESS;
+}
+
+void keypad_cb(char keypress)
+{
+ 	 std::cout << "printing" <<endl;
 }
 
 

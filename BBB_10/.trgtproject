@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <trgtproject id="com.qnx.tools.ide.target.core.target">
     <data>
@@ -28,3 +29,18 @@
         </item>
     </data>
 </trgtproject>
+=======
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<trgtproject id="com.qnx.tools.ide.target.core.target">
+    <data>
+        <item id="com.qnx.tools.ide.target">
+            <qconnport value="8000"/>
+            <qconnguid value="2cc8070e-4052-4714-9f38-6ec8556405b9"/>
+            <qconnostype value="nto"/>
+            <project>
+                <name value="BBB_10"/>
+            </project>
+        </item>
+    </data>
+</trgtproject>
+>>>>>>> Stashed changes
