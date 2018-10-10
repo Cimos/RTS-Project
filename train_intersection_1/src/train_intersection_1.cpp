@@ -27,9 +27,7 @@ using namespace std;
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
-//#define SHAWN
-//#define SIMON
-//#define MICHAEL
+
 
 
 /*-----------------------------------------------------------------------------
@@ -48,9 +46,13 @@ int train_south_arrive = 0;
 char sensorInput;
 int keepLooping = 1;
 
+char KeyPress = 0;
+
 /*-----------------------------------------------------------------------------
 * Threads Declarations
 *---------------------------------------------------------------------------*/
+
+
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -63,38 +65,38 @@ void trainStateMachine();
 * Main Function
 *---------------------------------------------------------------------------*/
 void keypad_cb(char keypress);
+DelayTimer boomGateTimer(false, 0, 3, 0, 0);	//boomgate error delay timer
+DelayTimer inboundSensorFaultTimer(false, 0, 1, 0, 0); //inbound train sensor fault timer
+
 
 int main() {
 
-	/*
- 	pthread_attr_t keyPad_attr;
+	//setup Keypad thread
+	pthread_attr_t keyPad_attr;
 	struct sched_param keyPad_param;
-    pthread_attr_init(&keyPad_attr);
-    pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
-    keyPad_param.sched_priority = 5;
-    pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
-    pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
-    pthread_attr_setstacksize (&keyPad_attr, 8000);
-	*/
-
+	pthread_attr_init(&keyPad_attr);
+	pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
+	keyPad_param.sched_priority = 5;
+	pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
+	pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setstacksize (&keyPad_attr, 8000);
+	//create keypad object
 	keyPad kp;
 	kp.registerCallback(keypad_cb);
-	// Note: can do kp.start() which will just give it default attributes and priority
-	//kp.start(&keyPad_attr);
-	kp.start();
+	kp.start(&keyPad_attr);	//start keypad
 
-	DelayTimer myDelay(false, 0, 1, 0, 0);
 
-	int rcvid;
 
 	while(1){
 
-		rcvid = myDelay.createTimer();
-		cout << rcvid << endl;
-		//cout << "Delay test" << endl;
-		myDelay.createTimer();
-	}
 
+		if (KeyPress == '1'){
+				cout << "rum" << endl;
+		};
+		cout << "print" << endl;
+
+		sleep(1);
+	}
 
 	printf("Welcome: Road railway crossing state machine\n");
 
@@ -106,7 +108,8 @@ int main() {
 
 void keypad_cb(char keypress)
 {
- 	 std::cout << "printing: " <<keypress << endl;
+ 	//std::cout << "Key pressed: " << keypress << endl;
+ 	KeyPress = keypress;
 }
 
 
