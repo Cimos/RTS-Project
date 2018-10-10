@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "keyPad.h"
+#include <keyPad.h>
 #include <iostream>
 
 #include "DelayTimer.h"

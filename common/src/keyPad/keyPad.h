@@ -36,7 +36,6 @@
 
 void keypad_cb(char keypress);
 
-
 int main()
 {
  	pthread_attr_t keyPad_attr;
@@ -54,6 +53,11 @@ int main()
 	kp.registerCallback(keypad_cb);
 	// Note: can do kp.start() which will just give it default attributes and priority
 	kp.start(&keyPad_attr);
+
+	while(1)
+	{
+		sleep(1);
+	}
 }
 
 void keypad_cb(char keypress)

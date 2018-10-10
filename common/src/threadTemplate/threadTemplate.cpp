@@ -135,8 +135,8 @@ public:
 	pthread_t *workerThread = NULL;
 
 	Private();
-
 	~Private();
+
 	// Main Worker Thread
 	void mainWorkThread(void *appData);
 
@@ -144,7 +144,7 @@ public:
 	int deleteWorkBuf(workBuf *buf2delete);
 	int copy2workBuf(workBuf *dest, char *src, int size, int mode);
 
-	void *(*cb)(workBuf *_work);
+	void *(*cb)(workBuf *_work) = NULL;
 
 	// Credit were credit is due: https://stackoverflow.com/questions/38224532/pthread-create-invalid-use-of-non-static-member-function
     static void* main_wrapper(void* object);
@@ -263,6 +263,7 @@ void WorkerThread::Private::mainWorkThread(void *appData)
 		{
 			GET_WORKER_THREAD_KEEPALIVE_AND_RINGBUFFER_INDEX(this, kA, rBuf, rIndex, wIndex);
 			if (!kA) { return; }
+
 			//TODO: Add in chrono sleep here
 			// std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		}

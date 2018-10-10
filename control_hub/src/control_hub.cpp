@@ -19,17 +19,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "../src/threadTemplate/threadTemplate.h"
 
+//#include "threadTemplate.h"
 //#include "lcdThread.h"
 #include "FT800.h"
 
 #include "file_io.h"
-//#include "keyPad.h"
+#include "keyPad.h"
 #include "debug.h"
 //#include "boneGpio.h"
-
-
+#include <iostream>
 
 #include <string.h>
 #include <stdint.h>
@@ -51,10 +50,8 @@
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
-
 #define MAX_RUNTIME_BUFFER 21
 #define SERVERINFO "TODO_CHANGE_ME"
-
 
 /*-----------------------------------------------------------------------------
 * Local Variables and Buffers
@@ -140,8 +137,6 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
 int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
 
 
-void *work_cb(workBuf *work);
-
 
 
 /*-----------------------------------------------------------------------------
@@ -150,37 +145,38 @@ void *work_cb(workBuf *work);
 int main(void)
 {
 
-//	checkIfFileExists("Amp");
-//	writeBoneLeds();
-//	int error = 0;
-//	UINT8 *tmp = (UINT8*)"Hello World";
-//	error = I2C_Open(&self.I2C_handle, 0, bus_speed::BAUD_100K, 0, 0);
-//	printf("Error %d\n", error);
-//	// 0x23 0x7C
-//	error = I2C_Write(&self.I2C_handle, 0x7C, tmp, sizeof("Hello World"));
-//	printf("Error %d\n", error);
-//	error = I2C_Close(&self.I2C_handle);
-//	printf("Error %d\n", error);
+	int error = 0;
 
 
-	WorkerThread pingpong;
+	UINT8 *tmp = (UINT8*)"Hello World";
+	error = I2C_Open(&self.I2C_handle, 1, 20000, 0, 0);
+	printf("Error %d\n", error);
+	// 0x23 0x7C
 
-	pingpong.setWorkFunction(work_cb);
+	while (1)
+	{
+	error = I2C_Write(&self.I2C_handle, 0x23, tmp, sizeof("Hello World"));
+	printf("Error %d\n", error);
+	sleep(1);
+	}
 
-
-	pingpong.doWork("Hello World", sizeof("Hello World"), 0);
+	error = I2C_Close(&self.I2C_handle);
+	printf("Error %d\n", error);
 
 
 	//serverInit();
 
 
-
-	puts("RTS - Traffic Light Project");
+	keyPad kp;
+	kp.registerCallback(keypad_cb);
+	// Note: can do kp.start() which will just give it default attributes and priority
+	kp.start(&keyPad_attr);
 
 	while(1)
 	{
-		sleep(1);
+		usleep(500);
 	}
+
 	return EXIT_SUCCESS;
 }
 
@@ -188,14 +184,6 @@ int main(void)
 /*-----------------------------------------------------------------------------
 * Local Function Definitions
 *---------------------------------------------------------------------------*/
-
-void *work_cb(workBuf *work)
-{
-	printf("Buf = %s\n",work->data->c_str());
-	printf("Size = %d\n",work->size);
-	printf("Mode = %d\n",work->mode);
-
-}
 
 
 
@@ -410,7 +398,7 @@ int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, 
 	handle->devName[8] = ('0' + port);
 	handle->bus_speed = i2cFrequency;
 
-	if ((handle->fd = open(handle->devName, O_RDWR)) < 0)
+	if ((handle->fd = open("/dev/i2c1", O_RDWR)) < 0)
 	{ return -1; }
 
 	error = devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(i2cFrequency), sizeof(i2cFrequency), NULL);
@@ -459,7 +447,7 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size)
 
 	fprintf(stderr, "Error sending i2c msg: %s\n",strerror ( error ));
 
-	return 0;
+	return error;
 }
 
 /*
