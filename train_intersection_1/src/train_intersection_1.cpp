@@ -89,9 +89,9 @@ int main() {
 
 	while(1){
 
-
 		if (KeyPress == '1'){
 				cout << "rum" << endl;
+				KeyPress = 0;
 		};
 		cout << "print" << endl;
 
