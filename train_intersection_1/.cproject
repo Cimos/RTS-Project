@@ -28,7 +28,7 @@
 							</builder>
 							<tool id="com.qnx.qcc.tool.compiler.1335686756" name="QCC Compiler" superClass="com.qnx.qcc.tool.compiler">
 								<option id="com.qnx.qcc.option.compiler.optlevel.482478684" name="Optimization Level" superClass="com.qnx.qcc.option.compiler.optlevel" useByScannerDiscovery="false" value="com.qnx.qcc.option.compiler.optlevel.0" valueType="enumerated"/>
-								<option id="com.qnx.qcc.option.compiler.includePath.159688714" name="Include Directories (-I)" superClass="com.qnx.qcc.option.compiler.includePath" valueType="includePath"/>
+								<option id="com.qnx.qcc.option.compiler.includePath.159688714" name="Include Directories (-I)" superClass="com.qnx.qcc.option.compiler.includePath"/>
 								<inputType id="com.qnx.qcc.inputType.compiler.736475197" superClass="com.qnx.qcc.inputType.compiler"/>
 							</tool>
 							<tool id="com.qnx.qcc.tool.assembler.1621170342" name="QCC Assembler" superClass="com.qnx.qcc.tool.assembler">

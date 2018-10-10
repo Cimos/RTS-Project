@@ -20,6 +20,8 @@
 #include "keyPad.h"
 #include <iostream>
 
+#include "DelayTimer.h"
+
 using namespace std;
 
 /*-----------------------------------------------------------------------------
@@ -64,6 +66,7 @@ void keypad_cb(char keypress);
 
 int main() {
 
+	/*
  	pthread_attr_t keyPad_attr;
 	struct sched_param keyPad_param;
     pthread_attr_init(&keyPad_attr);
@@ -72,18 +75,21 @@ int main() {
     pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
     pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setstacksize (&keyPad_attr, 8000);
-
+	*/
 
 	keyPad kp;
 	kp.registerCallback(keypad_cb);
 	// Note: can do kp.start() which will just give it default attributes and priority
-	kp.start(&keyPad_attr);
+	//kp.start(&keyPad_attr);
+	kp.start();
+
+	DelayTimer myDelay(false, 0, 2, 0, 0);
 
 
 	while(1){
 
-
-		sleep(1);
+		cout << "Delay test" << endl;
+		myDelay.createTimer();
 	}
 
 
@@ -97,7 +103,7 @@ int main() {
 
 void keypad_cb(char keypress)
 {
- 	 std::cout << "printing" <<endl;
+ 	 std::cout << "printing: " <<keypress << endl;
 }
 
 
