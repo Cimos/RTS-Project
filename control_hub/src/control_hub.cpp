@@ -140,6 +140,8 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
 int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
 
 
+void *work_cb(workBuf *work);
+
 
 
 /*-----------------------------------------------------------------------------
@@ -161,8 +163,12 @@ int main(void)
 //	printf("Error %d\n", error);
 
 
-	noName pingpong;
+	WorkerThread pingpong;
 
+	pingpong.setWorkFunction(work_cb);
+
+
+	pingpong.doWork("Hello World", sizeof("Hello World"), 0);
 
 
 	//serverInit();
@@ -183,7 +189,13 @@ int main(void)
 * Local Function Definitions
 *---------------------------------------------------------------------------*/
 
+void *work_cb(workBuf *work)
+{
+	printf("Buf = %s\n",work->data->c_str());
+	printf("Size = %d\n",work->size);
+	printf("Mode = %d\n",work->mode);
 
+}
 
 
 
@@ -327,10 +339,10 @@ void *server(void *appData)
                 continue;	// go back to top of while loop
             }
 
-//            if (msg.data == 1) { mode = 1; }
-//            else { mode = 0; }
+            // if (msg.data == 1) { mode = 1; }
+            // else { mode = 0; }
 
-           // read = readTrafficLightSensor(mode);
+            // read = readTrafficLightSensor(mode);
             replymsg.buf[0] = read + '0';
 
             DEBUGF("Server received data packet with value of '%d' from client (ID:%d)\n", msg.data, msg.ClientID);

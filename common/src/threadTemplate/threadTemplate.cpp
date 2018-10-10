@@ -14,7 +14,6 @@
 
 
 
-
 /*-----------------------------------------------------------------------------
 * Included Files
 *---------------------------------------------------------------------------*/
@@ -22,13 +21,11 @@
 #include <pthread.h>
 #include <unistd.h>
 
-
-
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
 
-#define RING_BUFFER_SIZE 10   // must be a mulitple of 2
+#define RING_BUFFER_SIZE 12
 
 
 // Use to lock mutex
@@ -46,8 +43,6 @@
 }
 
 
-
-// gets a lock_guard on the mutex prior to inc the ring buffer
 #define INC_READ_RINGBUFFER_INDEX(rBuf) {	 							\
     do { 																\
 	  Lock(rBuf.index_mtx);												\
@@ -57,7 +52,6 @@
     } while (0); 														\
 }
 
-// gets a lock_guard on the mutex prior to inc the ring buffer
 #define INC_WRITE_RINGBUFFER_INDEX(rBuf) {		 						\
     do { 																\
       Lock(rBuf.index_mtx);												\
@@ -67,7 +61,6 @@
     } while (0);														\
 }
 
-// gets a lock_guard on the mutex prior to returning its val
 #define GET_RINGBUFFER_INDEX(rBuf,rIndex,wIndex) { 						\
     do { 																\
       Lock(rBuf.index_mtx);												\
@@ -109,7 +102,6 @@
 }
 
 
-
 /*-----------------------------------------------------------------------------
 * Global Variables
 *---------------------------------------------------------------------------*/
@@ -118,28 +110,22 @@ struct _self
 {
 public:
 	pthread_mutex_t index_mtx = PTHREAD_MUTEX_INITIALIZER;  // needs to be set to PTHREAD_MUTEX_INITIALIZER;
-
 	workBuf work[RING_BUFFER_SIZE] = {};
 	int readIndex = 0;
 	int writeIndex = 0;
-
 };
-
 
 /*-----------------------------------------------------------------------------
 * Global Function Declarations
 *---------------------------------------------------------------------------*/
 
-
 //------------------------------------------------------------------------------
 // Public Declarations
 //------------------------------------------------------------------------------
 
-
-class noName::Private
+class WorkerThread::Private
 {
 public:
-
 
 	_self rBuf;
 
@@ -158,20 +144,20 @@ public:
 	int deleteWorkBuf(workBuf *buf2delete);
 	int copy2workBuf(workBuf *dest, char *src, int size, int mode);
 
+	void *(*cb)(workBuf *_work);
 
 	// Credit were credit is due: https://stackoverflow.com/questions/38224532/pthread-create-invalid-use-of-non-static-member-function
-    static void* send_wrapper(void* object);
+    static void* main_wrapper(void* object);
 
 private:
 };
-
 
 
 //------------------------------------------------------------------------------
 // Public Implementation
 //------------------------------------------------------------------------------
 
-noName::noName()
+WorkerThread::WorkerThread()
 {
 	_pimpl = new Private();
 }
@@ -179,12 +165,13 @@ noName::noName()
 /**
 * Deconstructor
 */
-noName::~noName()
+WorkerThread::~WorkerThread()
 {
 	delete _pimpl;
 }
 
-int noName::doWork(char *buf, int size, int mode)
+// If you want to change the type of data passed to the thread you would need to start here and workBuf struct.
+int WorkerThread::doWork(char *buf, int size, int mode)
 {
 	int rIndex = 0, wIndex = 0;
 	int timeOut = 5;
@@ -215,19 +202,33 @@ int noName::doWork(char *buf, int size, int mode)
 	return 0;
 }
 
+void *WorkerThread::setWorkFunction(void *(*_cb)(workBuf *_work))
+{
+	if (_cb != NULL)
+	{
+		_pimpl->cb = _cb;
+		return ((void*) _cb);
+	}
+	else
+	{
+		return NULL;
+	}
+}
 
 //------------------------------------------------------------------------------
 // Private Implementation
 //------------------------------------------------------------------------------
-noName::Private::Private()
+WorkerThread::Private::Private()
 {
 	workerThread = new pthread_t;
 
-	pthread_create(workerThread, NULL, send_wrapper, (void*)this);
+	pthread_create(workerThread, NULL, main_wrapper, (void*)this);
+	
+	//Allow scheduler to start main_wrapper
 	usleep(1);
 }
 
-noName::Private::~Private()
+WorkerThread::Private::~Private()
 {
 	Lock(keepAliveWork_mtx);
 	keepWorkThreadAlive = false;
@@ -238,14 +239,14 @@ noName::Private::~Private()
 	delete workerThread;
 }
 
-void* noName::Private::send_wrapper(void* object)
+void* WorkerThread::Private::main_wrapper(void* object)
 {
-
+	// Credit were credit is due: https://stackoverflow.com/questions/38224532/pthread-create-invalid-use-of-non-static-member-function
 	reinterpret_cast<Private*>(object)->mainWorkThread(NULL);
 	return 0;
 }
 
-void noName::Private::mainWorkThread(void *appData)
+void WorkerThread::Private::mainWorkThread(void *appData)
 {
 	int rIndex = 0, wIndex = 0;
 	bool kA = false;
@@ -272,10 +273,12 @@ void noName::Private::mainWorkThread(void *appData)
 			continue;
 		}
 
-
-		// Add function which actually does the work here
-		//Buf.work[rBuf.readIndex].mode == DATA_MODE
-		//rBuf.work[rBuf.readIndex].mode == CMD_MODE)
+		// Actual work being done here.
+		Lock(rBuf.index_mtx);
+		if (cb != NULL) {
+			cb(rBuf.work);
+		}
+		Unlock(rBuf.index_mtx);
 
 
 		// delete work buff
@@ -286,8 +289,7 @@ void noName::Private::mainWorkThread(void *appData)
 	}
 }
 
-
-int noName::Private::initWorkBuf(workBuf *buf2init, int size)
+int WorkerThread::Private::initWorkBuf(workBuf *buf2init, int size)
 {
 	int ret = 0;
 	try
@@ -303,7 +305,7 @@ int noName::Private::initWorkBuf(workBuf *buf2init, int size)
 	return ret;
 }
 
-int noName::Private::deleteWorkBuf(workBuf *buf2delete)
+int WorkerThread::Private::deleteWorkBuf(workBuf *buf2delete)
 {
 	int ret = 0;
 	if (buf2delete->data == NULL)
@@ -324,7 +326,7 @@ int noName::Private::deleteWorkBuf(workBuf *buf2delete)
 	return ret;
 }
 
-int noName::Private::copy2workBuf(workBuf *dest, char *src, int size, int mode)
+int WorkerThread::Private::copy2workBuf(workBuf *dest, char *src, int size, int mode)
 {
 	int ret = 0;
 	try
@@ -344,6 +346,3 @@ int noName::Private::copy2workBuf(workBuf *dest, char *src, int size, int mode)
 * END OF FILE
 * NOTHING BEYOND THIS POINT *
 */
-
-
-

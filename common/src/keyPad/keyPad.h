@@ -104,8 +104,6 @@ typedef struct
 /*-----------------------------------------------------------------------------
 * Global Variables and Buffers
 *---------------------------------------------------------------------------*/
-
-
 class keyPad
 {
 
@@ -115,14 +113,9 @@ private:
 	pthread_t *workerThread = NULL;
 	pthread_attr_t *workerThreadAttr = NULL;
 
-
 	_cbTable *cbTable = NULL;
-	//ISR_data ISR_area_data;
-
-	//bool threadRun = true;
 
 	static void *mainWorkThread(void *appData);
-
 
 
 public:
@@ -133,7 +126,6 @@ public:
 	// Mutex Pointers
 	pthread_mutex_t *workerMutex;
 
-
     keyPad();
     ~keyPad();
 
@@ -143,19 +135,11 @@ public:
     bool registerCallback(void (*_cb)(char));
     bool deregisterCallback(void (*_cb)(char));
     _cbTable* getCallback(void);
-
 };
-
-
-
-
-
-
 
 
 /*-----------------------------------------------------------------------------
 * Global Function Declarations
 *---------------------------------------------------------------------------*/
-
 
 #endif /* SRC_KEYPAD_KEYPAD_H_ */
