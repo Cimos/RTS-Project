@@ -46,17 +46,17 @@ class DelayTimer
 {
 private:
 
-	bool					repeat;
-	int 					timer_base;
-	long 					init_time;
-	int 					interval_base;
-	long 					interval_time;
-	struct sigevent         event;
-	struct itimerspec       itime;
-	timer_t                 timer_id;
-	int                     chid;
-	int                     rcvid;
-	my_message_t            msg;
+	bool					repeat = false;
+	int 					timer_base = 0;
+	long 					init_time = 0;
+	int 					interval_base = 0;
+	long 					interval_time = 0;
+	struct sigevent         event = {};
+	struct itimerspec       itime = {};
+	timer_t                 timer_id = {};
+	int                     chid = 0;
+	int                     rcvid = 0;
+	my_message_t            msg = {};
 
 
 public:
