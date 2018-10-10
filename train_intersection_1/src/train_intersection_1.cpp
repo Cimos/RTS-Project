@@ -83,12 +83,15 @@ int main() {
 	//kp.start(&keyPad_attr);
 	kp.start();
 
-	DelayTimer myDelay(false, 0, 2, 0, 0);
+	DelayTimer myDelay(false, 0, 1, 0, 0);
 
+	int rcvid;
 
 	while(1){
 
-		cout << "Delay test" << endl;
+		rcvid = myDelay.createTimer();
+		cout << rcvid << endl;
+		//cout << "Delay test" << endl;
 		myDelay.createTimer();
 	}
 

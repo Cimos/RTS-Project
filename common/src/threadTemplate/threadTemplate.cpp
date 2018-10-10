@@ -20,6 +20,7 @@
 #include "threadTemplate.h"
 #include <pthread.h>
 #include <unistd.h>
+#include "../DelayTimer/DelayTimer.h"
 
 /*-----------------------------------------------------------------------------
 * Definitions
@@ -118,6 +119,7 @@ public:
 /*-----------------------------------------------------------------------------
 * Global Function Declarations
 *---------------------------------------------------------------------------*/
+DelayTimer threadSleep(false, 1, 1000000, 0, 0);
 
 //------------------------------------------------------------------------------
 // Public Declarations
@@ -266,6 +268,8 @@ void WorkerThread::Private::mainWorkThread(void *appData)
 
 			//TODO: Add in chrono sleep here
 			// std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			threadSleep.createTimer();	//sleep for 1 millisecond
+
 		}
 
 		if (rBuf.work[rIndex].data == NULL)
