@@ -410,6 +410,7 @@
 		<configuration configurationName="x86_64-coverage">
 			<resource resourceType="PROJECT" workspacePath="/common"/>
 		</configuration>
+		<configuration configurationName="arm_debug"/>
 		<configuration configurationName="x86_64-profile">
 			<resource resourceType="PROJECT" workspacePath="/common"/>
 		</configuration>

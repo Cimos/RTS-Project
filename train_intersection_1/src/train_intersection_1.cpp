@@ -80,19 +80,21 @@ int main() {
 	pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
 	pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setstacksize (&keyPad_attr, 8000);
+
 	//create keypad object
 	keyPad kp;
 	kp.registerCallback(keypad_cb);
 	kp.start(&keyPad_attr);	//start keypad
 
 
-
 	while(1){
 
 
 		if (KeyPress == '1'){
-				cout << "rum" << endl;
-		};
+			cout << "rum" << endl;
+		}
+
+
 		cout << "print" << endl;
 
 		sleep(1);

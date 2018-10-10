@@ -62,7 +62,7 @@ int main()
 
 void keypad_cb(char keypress)
 {
- 	 // Warning, cant print in here.
+ 	 //
 }
 
 */

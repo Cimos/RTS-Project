@@ -23,13 +23,13 @@
 //#include "threadTemplate.h"
 //#include "lcdThread.h"
 //#include "DelayTimer.h"
+//#include "boneGpio.h"
 
 #include "FT800.h"
 
 #include "file_io.h"
 #include "keyPad.h"
 #include "debug.h"
-//#include "boneGpio.h"
 #include <iostream>
 
 #include <string.h>
@@ -46,14 +46,36 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/neutrino.h>
+#include <semaphore.h>
+#include <time.h>
 
 #include <sys/iofunc.h>
 #include <sys/dispatch.h>
+
+
+
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
 #define MAX_RUNTIME_BUFFER 21
-#define SERVERINFO "TODO_CHANGE_ME"
+#define Co_Ctrl   0x00  // mode to tell LCD we are sending a single command
+#define DATA_SEND 0x40  // sets the Rs value high
+
+
+
+// Use to lock mutex
+#define Lock(_Mutex) {		 											\
+	do { 																\
+		pthread_mutex_lock(&_Mutex); 									\
+	} while(0); 														\
+}
+
+// Use to unlock mutex
+#define Unlock(_Mutex) { 												\
+	do { 																\
+		pthread_mutex_unlock(&_Mutex);									\
+	} while(0); 														\
+}
 
 /*-----------------------------------------------------------------------------
 * Local Variables and Buffers
@@ -119,6 +141,21 @@ static struct
 	// ********* IntrSect's
 	controler2Intersection intrSect_1;
 	controler2Intersection intrSect_2;
+
+	// ********* Keypad
+	struct
+	{
+		keyPad thread;
+		pthread_attr_t keyPad_attr;
+		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+		struct sched_param keyPad_param;
+		char UserInput = 0;
+	}kp;
+
+
+	// ******** Current Time
+	time_t time;
+	 struct tm *currentTime;
 }self;
 
 
@@ -126,89 +163,331 @@ static struct
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
 *---------------------------------------------------------------------------*/
-// Server Host
 void *server(void *chid);
-//void tmp(void);
 void threadInit(_thread *th);
 void serverInit(void);
+void init(void);
+bool keypadInit(int prio);
+void keypad_cb(char keyPress);
+void logData(_data *toLog);
 
-
-int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2);
-int I2C_Close(I2C_HANDLE *handle);
-int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
-int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
-
-
+//int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2);
+//int I2C_Close(I2C_HANDLE *handle);
+//int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
+//int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
 int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t NbData);
-#define Co_Ctrl   0x00  // mode to tell LCD we are sending a single command
-#define DATA_SEND 0x40  // sets the Rs value high
+
+
+
+
 
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
-int main(void)
+int main(void)		//TODO: set date and time
 {
-
-	int error = 0;
-
-	int file;
-	volatile uint8_t LCDi2cAdd = 0x3C;	// i2c address
-	uint8_t	LCDcontrol = 0x00;
-
-
-	if ((file = open("/dev/i2c1",O_RDWR)) < 0)	  // OPEN I2C1
-	{
-		printf("Error while opening Device File.!!\n");
-		exit(EXIT_FAILURE);
-	}
-
-
-
-	_Uint32t speed = 10000; // nice and slow (will work with 200000)
-
-	error = devctl(file,DCMD_I2C_SET_BUS_SPEED,&(speed),sizeof(speed),NULL);  // Set Bus speed
-
-	LCDcontrol = 0x38;  // data byte for FUNC_SET_TBL1
-
-
-	while(1)
-	{
-		I2cWrite_(file, LCDi2cAdd, Co_Ctrl, &LCDcontrol, 1);		// write data to I2C
-
-		usleep(500);
-	}
-
-//	UINT8 *tmp = (UINT8*)"Hello World";
-//	error = I2C_Open(&self.I2C_handle, 1, 20000, 0, 0);
-//	printf("Error %d\n", error);
-//	// 0x23 0x7C
-//	while (1)
-//	{
-//	error = I2C_Write(&self.I2C_handle, 0x23<<1, tmp, sizeof("Hello World"));
-//	printf("Error %d\n", error);
-//	sleep(1);
-//	}
+	init();
+//	sem_t sem,*ptr_sema = &sem;
 //
-//	error = I2C_Close(&self.I2C_handle);
-//	printf("Error %d\n", error);
+//	int sem_init( sem_t * sem,
+//	              int pshared,
+//	              unsigned value );
 
+//	self.time = time(NULL);
+//	self.currentTime = localtime(&self.time);
 
-	//serverInit();
+	_data tmp;
 
+	tmp.ClientID = 1;
+	tmp.data.currentState = trafficLightStates::EWYG;
+	tmp.data.lightTiming.ewStright = 100;
+	tmp.data.lightTiming.nsStright = 200;
+	tmp.data.lightTiming.ewTurn = 101;
+	tmp.data.lightTiming.nsTurn = 202;
+	logData(&tmp);
 
 
 	while(1)
 	{
 		usleep(500);
 	}
+
+
 
 	return EXIT_SUCCESS;
 }
 
 
+
+
 /*-----------------------------------------------------------------------------
 * Local Function Definitions
 *---------------------------------------------------------------------------*/
+
+
+
+void init(void)
+{
+	std::string tmp(STARTUP_MSG);
+	write_string_ToFile(&tmp, CHLOG, "a+");
+
+	serverInit();
+	keypadInit(5);
+}
+
+/* ----------------------------------------------------	*
+ *	@server Implementation:								*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void logData(_data *toLog)
+{
+	std::string toLogData;
+	self.time = time(NULL);
+	self.currentTime = localtime(&self.time);
+	std::string time(asctime(self.currentTime));
+
+	// creating cvs formate with time and date stamp
+	toLogData.append(time.substr(0,time.length()-1));
+	toLogData.append(":ClientID=");
+	toLogData.append(std::to_string(toLog->ClientID));
+	toLogData.append(",nsStright=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.nsStright));
+	toLogData.append(",nsTurn=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
+	toLogData.append(",ewStright=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.ewStright));
+	toLogData.append(",ewTurn=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
+	toLogData.append(",currentState=");
+	toLogData.append(std::to_string(toLog->data.currentState));
+	toLogData.append(";\n");
+	write_string_ToFile(&toLogData, CHLOG, "a+");
+}
+
+
+/* ----------------------------------------------------	*
+ *	@init_keypad Implementation:						*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool keypadInit(int prio)
+{
+	// Set up thread atributes so that a custom prio if software is too slow for pulse from keyboard.
+    pthread_attr_init(&self.kp.keyPad_attr);
+    pthread_attr_setschedpolicy(&self.kp.keyPad_attr, SCHED_RR);
+    self.kp.keyPad_param.sched_priority = prio;
+    pthread_attr_setschedparam (&self.kp.keyPad_attr, &self.kp.keyPad_param);
+    pthread_attr_setinheritsched (&self.kp.keyPad_attr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setstacksize (&self.kp.keyPad_attr, 8000);
+
+	self.kp.thread.registerCallback(keypad_cb);
+	// Note: can do kp.start() which will just give it default attributes and priority
+	self.kp.thread.start(&self.kp.keyPad_attr);
+}
+
+/* ----------------------------------------------------	*
+ *	@serverInit Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void serverInit(void)
+{
+	DEBUGF("serverInit()->Initializing Server:\n");
+
+	threadInit(&self.serverThread);
+
+	self.serverPID = getpid(); 		// get server process ID
+	self.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
+
+	if (self.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
+	{
+		DEBUGF("serverInit()->Failed to create communication channel on server\n");
+		return;
+	}
+
+	DEBUGF("serverInit()->Writing server details to a file:");
+	DEBUGF("serverInit()->Process ID   : %d \n", self.serverPID);
+	DEBUGF("serverInit()->Channel ID   : %d \n", self.serverCHID);
+
+	write_pid_chid_ToFile(self.serverPID, self.serverCHID, CONTROLHUB_SERVER);
+
+	DEBUGF("serverInit()->Server listening for clients:\n");
+
+
+	pthread_create(&self.serverThread.thread, NULL, server, (void *)&self);
+
+	//server(self.serverCHID);
+
+	DEBUGF("serverInit()->Finished server Init:\n");
+	return;
+}
+
+
+/* ----------------------------------------------------	*
+ *	@threadInit Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void threadInit(_thread *th)
+{
+    pthread_attr_init (&th->attr);
+    pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
+    th->sch_prm.sched_priority = th->priority;
+    pthread_attr_setschedparam (&th->attr, &th->sch_prm);
+    pthread_attr_setinheritsched (&th->attr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setstacksize (&th->attr, 8000);
+}
+
+
+//TODO: Fix this for appData
+/* ----------------------------------------------------	*
+ *	@server Implementation:								*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void *server(void *appData)
+{
+//	self *tmp = (self *)appData;
+	int rcvid=0, msgnum=0;  	// no message received yet
+	int Stay_alive=0, living=1;	// stay alive and living for contorling the server status
+    int server_coid = 0;
+    int read = 0, chid = self.chid;
+    _data msg;			// received msg
+	_reply replymsg;	// replying msg
+
+	replymsg.hdr.type = 0x01;
+	replymsg.hdr.subtype = 0x00;
+
+
+    while (living)
+    {
+        rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+        DEBUGF("Message Received:\n");
+
+        if (rcvid == -1) {
+        	DEBUGF("Failed to MsgReceive\n");
+            break;
+        }
+        if (rcvid == 0) {
+            switch (msg.hdr.code){
+
+                case _PULSE_CODE_DISCONNECT:
+                    if(Stay_alive == 0)
+                    {
+                        ConnectDetach(msg.hdr.scoid);
+                        DEBUGF("Server->was told to Detach from ClientID:%d ...\n", msg.ClientID);
+                        //living = 0; // kill while loop
+                        //continue;
+                    }
+                    else
+                    {
+                    	DEBUGF("Server->received Detach pulse from ClientID:%d but rejected it ...\n", msg.ClientID);
+                    }
+                    break;
+                case _PULSE_CODE_UNBLOCK:
+                	DEBUGF("Server->got _PULSE_CODE_UNBLOCK after %d, msgnum\n", msgnum);
+                    break;
+                case _PULSE_CODE_COIDDEATH:  // from the kernel
+                	DEBUGF("Server->got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
+                    break;
+                case _PULSE_CODE_THREADDEATH: // from the kernel
+                	DEBUGF("Server->got _PULSE_CODE_THREAD_DEATH after %d, msgnum\n", msgnum);
+                    living = 0; // kill while loop
+                    break;
+                default: // Other pulse code, but it isnt handled
+                	DEBUGF("Server->got some other pulse after %d, msgnum\n", msgnum);
+                    break;
+            }
+            continue;
+        }
+
+        if(rcvid > 0)
+        {
+            msgnum++;
+
+            if (msg.hdr.type == _IO_CONNECT )
+            {
+                MsgReply( rcvid, EOK, NULL, 0 );
+                DEBUGF("gns service is running....\n");
+                continue;	// go back to top of while loop
+            }
+
+            if (msg.hdr.type > _IO_BASE && msg.hdr.type <= _IO_MAX )
+            {
+                MsgError( rcvid, ENOSYS );
+                DEBUGF("Server received and IO message and rejected it....\n");
+                continue;	// go back to top of while loop
+            }
+
+            // if (msg.data == 1) { mode = 1; }
+            // else { mode = 0; }
+            DEBUGF("Server->logging received message");
+        	logData(&msg);
+
+
+        	// TODO: place this into a control function that does all the work
+        	switch(msg.ClientID)
+        	{
+        	case clients::TRAFFIC_L1:
+        		printf("Server->Do Something");
+        		break;
+        	case clients::TRAFFIC_L2:
+        		break;
+        	case clients::TRAIN_I1:
+        		break;
+        	default:
+        		break;
+        	}
+
+            replymsg.buf[0] = read + '0';
+
+            DEBUGF("Server->received data packet from client (ID:%d)\n", msg.ClientID);
+            fflush(stdout);
+
+            DEBUGF("Server->replying with: '%s'\n",replymsg.buf);
+            MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
+        }
+        else
+        {
+        	DEBUGF("Server->ERROR->received something, but could not handle it correctly\n");
+        }
+
+    }
+	return NULL;
+}
+
+//MsgSend()
+
+/* ----------------------------------------------------	*
+ *	@keypad_cb Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void keypad_cb(char keyPress)
+{
+	Lock(self.kp.Mtx);
+	self.kp.UserInput = keyPress;
+	Unlock(self.kp.Mtx);
+ 	DEBUGF("Key Pressed: %c", keyPress);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -247,190 +526,27 @@ int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-void threadInit(_thread *th)
-{
-    pthread_attr_init (&th->attr);
-    pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
-    th->sch_prm.sched_priority = th->priority;
-    pthread_attr_setschedparam (&th->attr, &th->sch_prm);
-    pthread_attr_setinheritsched (&th->attr, PTHREAD_EXPLICIT_SCHED);
-    pthread_attr_setstacksize (&th->attr, 8000);
-}
-
-
-void serverInit(void)
-{
-	DEBUGF("serverInit()->Initializing Server:\n");
-
-	threadInit(&self.serverThread);
-
-	self.serverPID = getpid(); 		// get server process ID
-	self.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
-
-	if (self.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
-	{
-		DEBUGF("serverInit()->Failed to create communication channel on server\n");
-		return;
-	}
-
-	DEBUGF("serverInit()->Writing server details to a file:");
-	DEBUGF("serverInit()->Process ID   : %d \n", self.serverPID);
-	DEBUGF("serverInit()->Channel ID   : %d \n", self.serverCHID);
-
-	write_pid_chid_ToFile(self.serverPID, self.serverCHID, SERVERINFO);
-
-	DEBUGF("serverInit()->Server listening for clients:\n");
-
-
-	pthread_create(&self.serverThread.thread, NULL, server, (void *)&self.serverCHID);
-
-	//server(self.serverCHID);
-
-	DEBUGF("serverInit()->Finished server Init:\n");
-	return;
-}
-
-
-//TODO: Fix this for appData
-
-/* ----------------------------------------------------	*
- *	@server Implementation:								*
- *	@brief:												*
- *	@return:											*
- * ---------------------------------------------------	*/
-void *server(void *appData)
-{
-//    _self *self = (_self*)appData;
-
-	int rcvid=0, msgnum=0;  	// no message received yet
-	int Stay_alive=0, living=1;	// server stays running (ignores _PULSE_CODE_DISCONNECT request)
-    int server_coid = 0, mode = 0;
-    int read;
-
-    int chid = self.chid;
-    _data msg;
-	_reply replymsg; 			// replymsg structure for sending back to client
-	replymsg.hdr.type = 0x01;
-	replymsg.hdr.subtype = 0x00;
-
-
-    while (living)
-    {
-        // Do your MsgReceive's here now with the chid
-        rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
-        DEBUGF("Message Received:\n");
-
-        if (rcvid == -1) {
-        	DEBUGF("Failed to MsgReceive\n");
-            break;
-        }
-        if (rcvid == 0) {
-            switch (msg.hdr.code){
-
-                case _PULSE_CODE_DISCONNECT:
-                    if( Stay_alive == 0) {
-                        ConnectDetach(msg.hdr.scoid);
-                        DEBUGF("Server was told to Detach from ClientID:%d ...\n", msg.ClientID);
-                        living = 0; // kill while loop
-                        continue;
-                    } else {
-                    	DEBUGF("Server received Detach pulse from ClientID:%d but rejected it ...\n", msg.ClientID);
-                    }
-                    break;
-
-                case _PULSE_CODE_UNBLOCK:
-                	DEBUGF("Server got _PULSE_CODE_UNBLOCK after %d, msgnum\n", msgnum);
-                    break;
-
-                case _PULSE_CODE_COIDDEATH:  // from the kernel
-                	DEBUGF("Server got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
-                    break;
-
-                case _PULSE_CODE_THREADDEATH: // from the kernel
-                	DEBUGF("Server got _PULSE_CODE_THREAD_DEATH after %d, msgnum\n", msgnum);
-                    break;
-
-                default: // Some other pulse sent by one of your processes or the kernel
-                	DEBUGF("Server got some other pulse after %d, msgnum\n", msgnum);
-                    break;
-
-            }
-            continue;
-        }
-
-        if(rcvid > 0) {
-            msgnum++;
-
-            if (msg.hdr.type == _IO_CONNECT ) {
-                MsgReply( rcvid, EOK, NULL, 0 );
-                DEBUGF("gns service is running....\n");
-                continue;	// go back to top of while loop
-            }
-
-            if (msg.hdr.type > _IO_BASE && msg.hdr.type <= _IO_MAX ) {
-                MsgError( rcvid, ENOSYS );
-                DEBUGF("Server received and IO message and rejected it....\n");
-                continue;	// go back to top of while loop
-            }
-
-            // if (msg.data == 1) { mode = 1; }
-            // else { mode = 0; }
-
-            // read = readTrafficLightSensor(mode);
-            replymsg.buf[0] = read + '0';
-
-            DEBUGF("Server received data packet with value of '%d' from client (ID:%d)\n", msg.data, msg.ClientID);
-            fflush(stdout);
-
-            DEBUGF("replying with: '%s'\n",replymsg.buf);
-            MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
-        }
-        else
-        {
-        	DEBUGF("ERROR: Server received something, but could not handle it correctly\n");
-        }
-
-    }
-	return NULL;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/*
+ *
+//	UINT8 *tmp = (UINT8*)"Hello World";
+//	error = I2C_Open(&self.I2C_handle, 1, 20000, 0, 0);
+//	printf("Error %d\n", error);
+//	// 0x23 0x7C
+//	while (1)
+//	{
+//	error = I2C_Write(&self.I2C_handle, 0x23<<1, tmp, sizeof("Hello World"));
+//	printf("Error %d\n", error);
+//	sleep(1);
+//	}
+//
+//	error = I2C_Close(&self.I2C_handle);
+//	printf("Error %d\n", error);
+
+
+	//serverInit();
+ *
+ *
+ */
 
 
 
@@ -537,5 +653,39 @@ int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UIN
 
 	return 0;
 }
+
+
+
+/*
+ *
+ * int file;
+	volatile uint8_t LCDi2cAdd = 0x3C;	// i2c address
+	uint8_t	LCDcontrol = 0x00;
+
+
+	if ((file = open("/dev/i2c1",O_RDWR)) < 0)	  // OPEN I2C1
+	{
+		printf("Error while opening Device File.!!\n");
+		exit(EXIT_FAILURE);
+	}
+
+
+
+	_Uint32t speed = 10000; // nice and slow (will work with 200000)
+
+	error = devctl(file,DCMD_I2C_SET_BUS_SPEED,&(speed),sizeof(speed),NULL);  // Set Bus speed
+
+	LCDcontrol = 0x38;  // data byte for FUNC_SET_TBL1
+
+
+	while(1)
+	{
+		I2cWrite_(file, LCDi2cAdd, Co_Ctrl, &LCDcontrol, 1);		// write data to I2C
+
+		usleep(500);
+	}
+ *
+ *
+ */
 
 
