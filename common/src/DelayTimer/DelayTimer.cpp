@@ -15,7 +15,7 @@
 /*-----------------------------------------------------------------------------
 * Included Files
 *---------------------------------------------------------------------------*/
-#include "../DelayTimer/DelayTimer.h"
+#include "DelayTimer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,29 +30,10 @@
 * Definitions
 *---------------------------------------------------------------------------*/
 
-#define MY_PULSE_CODE   _PULSE_CODE_MINAVAIL
-
-typedef union
-{
-	struct _pulse   pulse;
-	// your other message structures would go here too
-} my_message_t;
-
 /*-----------------------------------------------------------------------------
 * Global Variables and Buffers
 *---------------------------------------------------------------------------*/
 
-bool					repeat;
-int 					timer_base;
-long 					init_time;
-int 					interval_base;
-long 					interval_time;
-struct sigevent         event;
-struct itimerspec       itime;
-timer_t                 timer_id;
-int                     chid;
-int                     rcvid;
-my_message_t            msg;
 
 /* ----------------------------------------------------	*
  *	@getMsgQueId DelayTimer constructor:		    	*
@@ -60,7 +41,8 @@ my_message_t            msg;
  *	@return:                                 			*
  * ---------------------------------------------------	*/
 
-DelayTimer::DelayTimer(bool Repeat, int Timer_base, int Init_time, int Interval_base, int Interval_time) {
+DelayTimer::DelayTimer(bool Repeat, int Timer_base, long Init_time, int Interval_base, long Interval_time) 
+{
 	timer_base = Timer_base;
 	init_time = Init_time;
 	interval_base = Interval_base;
@@ -73,7 +55,8 @@ DelayTimer::DelayTimer(bool Repeat, int Timer_base, int Init_time, int Interval_
  *	@breif:  											*
  *	@return:                                 			*
  * ---------------------------------------------------	*/
-DelayTimer::~DelayTimer() {
+DelayTimer::~DelayTimer() 
+{
 	// TODO Auto-generated destructor stub
 }
 
@@ -82,14 +65,16 @@ DelayTimer::~DelayTimer() {
  *	@breif:  											*
  *	@return:                                 			*
  * ---------------------------------------------------	*/
-int DelayTimer::createTimer(){
+int DelayTimer::createTimer()
+{
 	chid = ChannelCreate(0); // Create a communications channel
 
 	event.sigev_notify = SIGEV_PULSE;
 
 	// create a connection back to ourselves for the timer to send the pulse on
 	event.sigev_coid = ConnectAttach(ND_LOCAL_NODE, 0, chid, _NTO_SIDE_CHANNEL, 0);
-	if (event.sigev_coid == -1){
+	if (event.sigev_coid == -1)
+	{
 		std::cout << "Error: couldnt connect to self!" << std::endl;
 		perror(NULL);
 		exit(EXIT_FAILURE);
@@ -98,17 +83,20 @@ int DelayTimer::createTimer(){
 	event.sigev_code = MY_PULSE_CODE;
 
 	// create the timer, binding it to the event
-	if (timer_create(CLOCK_REALTIME, &event, &timer_id) == -1){
+	if (timer_create(CLOCK_REALTIME, &event, &timer_id) == -1)
+	{
 		std::cout << "Error: couldn't create a timer!" << std::endl;
 		perror(NULL);
 		exit(EXIT_FAILURE);
 	}
 
 	// setup the timer - one shot
-	if (timer_base == 0){
+	if (timer_base == 0)
+	{
 		itime.it_value.tv_sec = init_time;
 	}
-	else if (timer_base == 1){
+	else if (timer_base == 1)
+	{
 		itime.it_value.tv_nsec = init_time;
 	}
 	else{
@@ -117,14 +105,18 @@ int DelayTimer::createTimer(){
 
 
 	//timer interval - repeat
-	if (repeat == true){
-		if (interval_base == 0){
+	if (repeat == true)
+	{
+		if (interval_base == 0)
+		{
 			itime.it_interval.tv_sec = interval_time;
 		}
-		else if (interval_base == 1){
+		else if (interval_base == 1)
+		{
 			itime.it_interval.tv_nsec = interval_time;
 		}
-		else{
+		else
+		{
 			std::cout << "Error: incorrect interval base. Use: 0 = sec, 1 = nsec!" << std::endl;
 		}
 	}

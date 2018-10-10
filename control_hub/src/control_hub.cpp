@@ -22,6 +22,8 @@
 
 //#include "threadTemplate.h"
 //#include "lcdThread.h"
+//#include "DelayTimer.h"
+
 #include "FT800.h"
 
 #include "file_io.h"
@@ -167,10 +169,6 @@ int main(void)
 	//serverInit();
 
 
-	keyPad kp;
-	kp.registerCallback(keypad_cb);
-	// Note: can do kp.start() which will just give it default attributes and priority
-	kp.start(&keyPad_attr);
 
 	while(1)
 	{

@@ -21,11 +21,48 @@
 #ifndef SRC_DELAYTIMER_DELAYTIMER_H_
 #define SRC_DELAYTIMER_DELAYTIMER_H_
 
-class DelayTimer {
+
+
+#include <sys/netmgr.h>
+#include <sys/neutrino.h>
+#include <unistd.h>
+
+/*-----------------------------------------------------------------------------
+* Definitions
+*---------------------------------------------------------------------------*/
+
+#define MY_PULSE_CODE   _PULSE_CODE_MINAVAIL
+
+
+typedef union
+{
+	struct _pulse   pulse;
+	// your other message structures would go here too
+} my_message_t;
+
+
+
+class DelayTimer 
+{
+private:
+
+	bool					repeat;
+	int 					timer_base;
+	long 					init_time;
+	int 					interval_base;
+	long 					interval_time;
+	struct sigevent         event;
+	struct itimerspec       itime;
+	timer_t                 timer_id;
+	int                     chid;
+	int                     rcvid;
+	my_message_t            msg;
+
 
 public:
 
-	DelayTimer(bool Repeat, int Timer_base, int Init_time, int Interval_base, int Interval_time);
+	//DelayTimer() {}
+	DelayTimer(bool Repeat, int Timer_base, long Init_time, int Interval_base, long Interval_time);
 	virtual ~DelayTimer();
 
 	int createTimer();
