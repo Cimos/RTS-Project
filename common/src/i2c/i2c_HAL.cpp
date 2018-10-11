@@ -29,7 +29,7 @@
 
 #define I2C_PORT            0
 #define I2C_ADDRESS         0x23
-#define I2C_FREQUENCY       400000    //100k hz //400k needed?
+#define I2C_FREQUENCY       100000    //100k hz //400k needed?
 
 
 extern unsigned short dli;
@@ -83,11 +83,11 @@ void host_command(UINT8 command)
 {
     UINT8 data[3] = {};
 
-    data[0] = 0x40 | (command & 0x3F);      // Command[5:0]   // I dont think this is what the arduino code was doing.
+    data[0] = 0x40 | (command & 0x3F);      // Command[5:0]
     data[1] = 0x00;                         // [15:8]
     data[2] = 0x00;                         // [7:0]
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, 3, &command);
+    I2C_Write(&_ft800.i2c, _ft800.addr, 3, &command);
 }
 
 void wr8(UINT32 addr, ft_uint8_t value)
@@ -100,7 +100,7 @@ void wr8(UINT32 addr, ft_uint8_t value)
     data[2] = addr & 0xFF;
     data[3] = value;
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, sizeof(data), data);
+    I2C_Write(&_ft800.i2c, _ft800.addr, sizeof(data), data);
 }
 
 void wr16(UINT32 addr, ft_uint16_t value)
@@ -114,7 +114,7 @@ void wr16(UINT32 addr, ft_uint16_t value)
     data[3] = value & 0xFF;
     data[4] = value>>8 & 0xFF;
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, 5, data);
+    I2C_Write(&_ft800.i2c, _ft800.addr, 5, data);
 }
 
 void wr32(UINT32 addr, ft_uint32_t value)
@@ -130,7 +130,7 @@ void wr32(UINT32 addr, ft_uint32_t value)
     data[5] = value>>16 & 0xFF;
     data[6] = value>>24 & 0xFF;
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, 7, data);
+    I2C_Write(&_ft800.i2c, _ft800.addr, 7, data);
 }
 
 ft_uint8_t rd8(UINT32 addr)
@@ -144,7 +144,7 @@ ft_uint8_t rd8(UINT32 addr)
 
     // ret is error code and should be check
     // step 1 -- 10
-    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
+    I2C_Transaction(&_ft800.i2c, _ft800.addr,
                             data,3,     //tx
                             data,1);   //rx
 
@@ -160,7 +160,7 @@ ft_uint16_t rd16(UINT32 addr)
     data[1] = addr>>8 & 0xFF;
     data[2] = addr & 0xFF;
 
-    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
+    I2C_Transaction(&_ft800.i2c, _ft800.addr,
                             data,3,
                             data,2);
 
@@ -176,7 +176,7 @@ ft_uint32_t rd32(UINT32 addr)
     data[1] = addr>>8 & 0xFF;
     data[2] = addr & 0xFF;
 
-    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
+    I2C_Transaction(&_ft800.i2c, _ft800.addr,
                             data,3,
                             data,4);
 
@@ -210,7 +210,7 @@ ft_uint8_t wr8s(UINT32 addr, ft_char8_t *s)   // max 20 bytes of data excluding 
       data[i+3] = 0x00;
     }
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, (length + 3 + allignment), data);
+    I2C_Write(&_ft800.i2c, _ft800.addr, (length + 3 + allignment), data);
 
     ufree(data);
     return i;
@@ -248,7 +248,7 @@ void cmd(ft_uint32_t command){
 void i2c_LCD_port_OPEN()
 {
     I2C_Open(&_ft800.i2c, I2C_PORT, I2C_FREQUENCY, 30, 1);
-	_ft800.addr = I2C_ADDRESS>>1;
+	_ft800.addr = I2C_ADDRESS&0xFE;
 }
 
 void i2c_LCD_port_CLOSE()
@@ -345,11 +345,11 @@ int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UIN
 	iov_t siov[2] = {};
 	iov_t riov[2] = {};
 
-    hdr.slave.addr = addr;
-    hdr.slave.fmt = I2C_ADDRFMT_7BIT;
-    hdr.send_len = size;
-    hdr.recv_len = size2;
-    hdr.stop = 1;
+	hdr.slave.addr = addr;
+	hdr.slave.fmt = I2C_ADDRFMT_7BIT;
+	hdr.send_len = size;
+	hdr.recv_len = size2;
+	hdr.stop = 1;
 
     SETIOV(&siov[0], &hdr, sizeof(hdr));	// setup siov
     SETIOV(&siov[1], &sndBuf[0], size);
@@ -358,7 +358,9 @@ int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UIN
     SETIOV(&riov[1], retBuf, size2);
 
     // return success??
-	return devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
+	devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
+//	devctlv(handle->fd, DCMD_I2C_RECV, 0, 2, NULL, riov, NULL);
+
 
 	return 0;
 }

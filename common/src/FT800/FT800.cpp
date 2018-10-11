@@ -39,10 +39,6 @@
 #define CLK36M  0x61
 #define CORERST 0x68
 
-#define I2C_PORT            0
-#define I2C_ADDRESS         0x23
-#define I2C_FREQUENCY       100000    //100k hz //400k needed?
-
 
 
 /*-----------------------------------------------------------------------------
@@ -76,6 +72,12 @@ void FT800_Init(void)
   host_command(ACTIVE); //send host command "ACTIVE" to FT800
   host_command(CLKEXT); //send command to "CLKEXT" to FT800
   host_command(CLK48M);
+
+  usleep(1000);
+  host_command(SLEEP);
+  usleep(1000);
+  host_command(ACTIVE); //send host command "ACTIVE" to FT800
+  usleep(1000);
 
   reg_id = rd8(REG_ID);
 
@@ -171,6 +173,7 @@ int wake_screen()
   host_command(CLKEXT); //send command to "CLKEXT" to FT800
   host_command(CLK48M);
 
+  usleep(20);
   reg_id = rd8(REG_ID);
 
   if (reg_id != 0x7C)

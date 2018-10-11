@@ -154,7 +154,7 @@ int main(void)		//TODO: set date and time
 
 	//char input = printMenu(1);
 	//std::cout << "Entered: " << input << std::endl;
-	//FT800_Init();
+	FT800_Init();
 
 
 	init();
