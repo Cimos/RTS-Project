@@ -29,18 +29,23 @@
 //
 #include <stdint.h>        // for unit32 types
 #include <stdlib.h>
+#include <sys/iofunc.h>
+
 //#include <stdio.h>
 #include <time.h>
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
 
-
+#define MSG_SIZE 10
 #define CONTROLHUB_SERVER "ControlServer.info"
 //#define TRAFFIC_L1	0x10
 //#define TRAFFIC_L2	0x20
 //#define TRAIN_I1	0x30
 //#define CONTROL_H1	0x40
+
+
+
 
 enum clients
 {
@@ -110,6 +115,21 @@ typedef struct
     time_t eveningPeakFinish;
 
 }systemTimeAlignment;
+
+
+
+typedef struct
+{
+	struct _pulse hdr; // Our real data comes after this header
+	int ClientID; // our data (unique id from client)
+	controler2Intersection data;     // our data
+} _data;
+
+typedef struct
+{
+	struct _pulse hdr;  // Our real data comes after this header
+    char buf[MSG_SIZE]; // Message we send back to clients to tell them the messages was processed correctly.
+} _reply;
 
 
 

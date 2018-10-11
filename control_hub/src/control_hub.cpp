@@ -59,7 +59,7 @@
 #define MAX_RUNTIME_BUFFER 21
 #define Co_Ctrl   0x00  // mode to tell LCD we are sending a single command
 #define DATA_SEND 0x40  // sets the Rs value high
-
+#define MENUPRINT printf
 
 
 // Use to lock mutex
@@ -88,20 +88,6 @@ typedef struct
 	int priority;
 }_thread;
 
-
-
-typedef struct
-{
-	struct _pulse hdr; // Our real data comes after this header
-	int ClientID; // our data (unique id from client)
-	controler2Intersection data;     // our data
-} _data;
-
-typedef struct
-{
-	struct _pulse hdr;  // Our real data comes after this header
-    char buf[BUF_SIZE]; // Message we send back to clients to tell them the messages was processed correctly.
-} _reply;
 
 
 
@@ -153,12 +139,8 @@ void init(void);
 bool keypadInit(int prio);
 void keypad_cb(char keyPress);
 void logData(_data *toLog);
+int printMenu(int mode);
 
-//int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2);
-//int I2C_Close(I2C_HANDLE *handle);
-//int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
-//int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
-//int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t NbData);
 
 
 
@@ -170,8 +152,9 @@ void logData(_data *toLog);
 int main(void)		//TODO: set date and time
 {
 
-
-	FT800_Init();
+	//char input = printMenu(1);
+	//std::cout << "Entered: " << input << std::endl;
+	//FT800_Init();
 
 
 	init();
@@ -195,12 +178,15 @@ int main(void)		//TODO: set date and time
 	logData(&tmp);
 
 
-	while(1)
-	{
-		usleep(500);
-	}
 
 
+
+
+
+
+
+
+	while(1) { usleep(500); }
 
 	return EXIT_SUCCESS;
 }
@@ -282,7 +268,6 @@ bool keypadInit(int prio)
 void serverInit(void)
 {
 	DEBUGF("serverInit()->Initializing Server:\n");
-
 	threadInit(&self.serverThread);
 
 	self.serverPID = getpid(); 		// get server process ID
@@ -302,10 +287,7 @@ void serverInit(void)
 
 	DEBUGF("serverInit()->Server listening for clients:\n");
 
-
 	pthread_create(&self.serverThread.thread, NULL, server, (void *)&self);
-
-	//server(self.serverCHID);
 
 	DEBUGF("serverInit()->Finished server Init:\n");
 	return;
@@ -418,11 +400,13 @@ void *server(void *appData)
         	switch(msg.ClientID)
         	{
         	case clients::TRAFFIC_L1:
-        		printf("Server->Do Something");
+        		//updateTrafficLight1();
         		break;
         	case clients::TRAFFIC_L2:
+        		//updateTrafficLight2();
         		break;
         	case clients::TRAIN_I1:
+        		//updateTrainIntersection1();
         		break;
         	default:
         		break;
@@ -464,6 +448,20 @@ void keypad_cb(char keyPress)
 
 
 
+
+int printMenu(int mode)
+{
+	char input = 0;
+	MENUPRINT("-> 1. update TL 1:\n");
+	MENUPRINT("-> 2. update TL 2:\n");
+	MENUPRINT("-> 3. update TL 3:\n");
+	MENUPRINT("Enter command or 'q' for quit:\n");
+
+	std::cin >> input;
+
+	return input;
+
+}
 
 
 
