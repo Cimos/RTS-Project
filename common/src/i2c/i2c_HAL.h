@@ -27,6 +27,21 @@
 
 
 
+enum bus_speed
+{
+	BAUD_100K = 100000,
+	BAUD_400K = 400000,
+	BAUD_3_2M = 3200000
+};
+
+typedef struct {
+	char devName[10];
+	int fd;
+	UINT32 bus_speed;
+}I2C_HANDLE;
+
+
+
 void i2c_LCD_port_OPEN();
 void i2c_LCD_port_CLOSE();
 

@@ -34,7 +34,9 @@
 								<inputType id="com.qnx.qcc.inputType.compiler.947321081" superClass="com.qnx.qcc.inputType.compiler"/>
 							</tool>
 							<tool id="com.qnx.qcc.tool.assembler.1847415523" name="QCC Assembler" superClass="com.qnx.qcc.tool.assembler">
-								<option id="com.qnx.qcc.option.assembler.includePath.836225376" name="Include Directories (-I)" superClass="com.qnx.qcc.option.assembler.includePath"/>
+								<option id="com.qnx.qcc.option.assembler.includePath.836225376" name="Include Directories (-I)" superClass="com.qnx.qcc.option.assembler.includePath" valueType="includePath">
+									<listOptionValue builtIn="false" value="C:/QNX7workspace/RTS-Project/common/src"/>
+								</option>
 								<inputType id="com.qnx.qcc.inputType.assembler.1459881457" superClass="com.qnx.qcc.inputType.assembler"/>
 							</tool>
 							<tool id="com.qnx.qcc.tool.linker.27375684" name="QCC Linker" superClass="com.qnx.qcc.tool.linker">

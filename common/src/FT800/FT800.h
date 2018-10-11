@@ -1,3 +1,18 @@
+/******************************************************************************
+*
+* RTS Traffic Light Project 2018
+*
+*****************************************************************************/
+/**
+* @file     FT800.h
+* @brief    RTS Traffic Light Project
+* @author   Michael Stekla	s3545953
+* 			Simon Maddison	s3493550
+* 			Shawn Buschmann	s3478646
+*/
+
+
+
 /*
 
 Copyright (c) Future Technology Devices International 2014
@@ -407,7 +422,7 @@ ft_bool_t lcd_wake_up();
  * @brief Initializes the FT800
  * @param
  */
-int FT80x_Init(void);
+void FT800_Init(void);
 
 
 

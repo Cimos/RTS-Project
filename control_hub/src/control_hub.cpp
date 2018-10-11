@@ -25,7 +25,7 @@
 //#include "DelayTimer.h"
 //#include "boneGpio.h"
 
-#include "FT800.h"
+#include <FT800.h>
 
 #include "file_io.h"
 #include "keyPad.h"
@@ -41,8 +41,7 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <fcntl.h>
-#include <devctl.h>
-#include <hw/i2c.h>
+
 #include <errno.h>
 #include <unistd.h>
 #include <sys/neutrino.h>
@@ -105,20 +104,6 @@ typedef struct
 } _reply;
 
 
-enum bus_speed
-{
-	BAUD_100K = 100000,
-	BAUD_400K = 400000,
-	BAUD_3_2M = 3200000
-};
-
-typedef struct {
-	char devName[10];
-	int fd;
-	UINT32 bus_speed;
-}I2C_HANDLE;
-
-
 
 static struct
 {
@@ -134,9 +119,7 @@ static struct
 	// ******** thread handlers
 	_thread serverThread;
 
-	// ********* I2C
-	I2C_HANDLE I2C_handle = {"/dev/i2c", 1, bus_speed::BAUD_100K};
-	UINT8 slave_addr;
+
 
 	// ********* IntrSect's
 	controler2Intersection intrSect_1;
@@ -175,7 +158,7 @@ void logData(_data *toLog);
 //int I2C_Close(I2C_HANDLE *handle);
 //int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size);
 //int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
-int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t NbData);
+//int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t NbData);
 
 
 
@@ -186,6 +169,11 @@ int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t
 *---------------------------------------------------------------------------*/
 int main(void)		//TODO: set date and time
 {
+
+
+	FT800_Init();
+
+
 	init();
 //	sem_t sem,*ptr_sema = &sem;
 //
@@ -490,202 +478,5 @@ void keypad_cb(char keyPress)
 
 
 
-
-// Writes to I2C
-int  I2cWrite_(int fd, uint8_t Address, uint8_t mode, uint8_t *pBuffer, uint32_t NbData)
-{
-	i2c_send_t hdr;
-    iov_t sv[2];
-    int status, i;
-
-    uint8_t LCDpacket[21] = {};  // limited to 21 characters  (1 control bit + 20 bytes)
-
-    // set the mode for the write (control or data)
-    LCDpacket[0] = mode;  // set the mode (data or control)
-
-	// copy data to send to send buffer (after the mode bit)
-	for (i=0;i<NbData+1;i++)
-		LCDpacket[i+1] = *pBuffer++;
-
-    hdr.slave.addr = Address;
-    hdr.slave.fmt = I2C_ADDRFMT_7BIT;
-    hdr.len = NbData + 1;  // 1 extra for control (mode) bit
-    hdr.stop = 1;
-
-    SETIOV(&sv[0], &hdr, sizeof(hdr));
-    SETIOV(&sv[1], &LCDpacket[0], NbData + 1); // 1 extra for control (mode) bit
-      // int devctlv(int filedes, int dcmd,     int sparts, int rparts, const iov_t *sv, const iov_t *rv, int *dev_info_ptr);
-    status = devctlv(fd, 		  DCMD_I2C_SEND, 2,          0,          sv,              NULL,           NULL);
-
-    if (status != EOK)
-    	printf("status = %s\n", strerror ( status ));
-
-    return status;
-}
-
-
-
-
-/*
- *
-//	UINT8 *tmp = (UINT8*)"Hello World";
-//	error = I2C_Open(&self.I2C_handle, 1, 20000, 0, 0);
-//	printf("Error %d\n", error);
-//	// 0x23 0x7C
-//	while (1)
-//	{
-//	error = I2C_Write(&self.I2C_handle, 0x23<<1, tmp, sizeof("Hello World"));
-//	printf("Error %d\n", error);
-//	sleep(1);
-//	}
-//
-//	error = I2C_Close(&self.I2C_handle);
-//	printf("Error %d\n", error);
-
-
-	//serverInit();
- *
- *
- */
-
-
-
-
-
-/*
- * @breif: use to open and init i2c port
- * @ret: returns error code
- *
- */
-int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2)
-{
-	int error = 0;
-	//_Uint32t speed = 10000; // nice and slow (will work with 200000)
-	//i2c_addr_t address;
-	//address.fmt = I2C_ADDRFMT_7BIT;
-	//address.addr = 0x90;
-
-	if (port > 1 || port < 0)
-	{ return -1; }
-
-	handle->devName[8] = ('0' + port);
-	handle->bus_speed = i2cFrequency;
-
-	if ((handle->fd = open("/dev/i2c1", O_RDWR)) < 0)
-	{ return -1; }
-
-	error = devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(i2cFrequency), sizeof(i2cFrequency), NULL);
-	fprintf(stderr, "Error setting the I2C bus speed: %s\n",strerror ( error ));
-
-	return error;
-	//error = devctl(handle->fd,DCMD_I2C_SET_SLAVE_ADDR,&address,sizeof(address),NULL);
-
-	//fprintf(stderr, "Error setting the slave address: %s\n",strerror ( error ));
-
-	//return error;
-}
-
-/*
- * @breif: use to close i2c port
- * @ret: returns error code
- *
- */
-int I2C_Close(I2C_HANDLE *handle)
-{
-	return close(handle->fd);
-}
-
-/*
- * @breif: use to write data to a i2c salve
- * @ret: returns error code
- *
- * @note: addr is not address of slave but address of register at slave
- *
- */
-int I2C_Write(I2C_HANDLE *handle, UINT8 addr, UINT8* data, int size)
-{
-	i2c_send_t hdr;
-	iov_t siov[2];
-
-	hdr.slave.addr = addr;
-	hdr.slave.fmt = I2C_ADDRFMT_7BIT;
-	hdr.len = size;
-	hdr.stop = 1;
-
-	SETIOV(&siov[0], &hdr, sizeof(hdr));
-	SETIOV(&siov[1], &data[0], size);
-
-
-	int error = devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
-
-	fprintf(stderr, "Error sending i2c msg: %s\n",strerror ( error ));
-
-	return error;
-}
-
-/*
- * @breif: use to write then read a i2c salve.. i.e. reading a register from the slave
- * @ret: returns error code
- *
- * @note: addr is not address of slave but address of register at slave
- *
- */
-int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2)
-{
-	i2c_sendrecv_t  hdr;
-	iov_t siov[2] = {};
-	iov_t riov[2] = {};
-
-    hdr.slave.addr = addr;
-    hdr.slave.fmt = I2C_ADDRFMT_7BIT;
-    hdr.send_len = size;
-    hdr.recv_len = size2;
-    hdr.stop = 1;
-
-    SETIOV(&siov[0], &hdr, sizeof(hdr));	// setup siov
-    SETIOV(&siov[1], &sndBuf[0], size);
-
-    SETIOV(&riov[0], &hdr, sizeof(hdr));	// setup riov
-    SETIOV(&riov[1], retBuf, size2);
-
-    // return success??
-	return devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
-
-	return 0;
-}
-
-
-
-/*
- *
- * int file;
-	volatile uint8_t LCDi2cAdd = 0x3C;	// i2c address
-	uint8_t	LCDcontrol = 0x00;
-
-
-	if ((file = open("/dev/i2c1",O_RDWR)) < 0)	  // OPEN I2C1
-	{
-		printf("Error while opening Device File.!!\n");
-		exit(EXIT_FAILURE);
-	}
-
-
-
-	_Uint32t speed = 10000; // nice and slow (will work with 200000)
-
-	error = devctl(file,DCMD_I2C_SET_BUS_SPEED,&(speed),sizeof(speed),NULL);  // Set Bus speed
-
-	LCDcontrol = 0x38;  // data byte for FUNC_SET_TBL1
-
-
-	while(1)
-	{
-		I2cWrite_(file, LCDi2cAdd, Co_Ctrl, &LCDcontrol, 1);		// write data to I2C
-
-		usleep(500);
-	}
- *
- *
- */
 
 
