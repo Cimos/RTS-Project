@@ -11,11 +11,12 @@
  *
  */
 
-#include "../../public/i2c_HAL.h"
+#include "i2c_HAL.h"
 #include <strings.h>
+#include <devctl.h>
 #include <hw/i2c.h>
-
-
+#include <fcntl.h>
+#include "../FT800/FT800.h"
 
 #define ACTIVE  0x00
 #define STANDBY 0x41
@@ -28,10 +29,11 @@
 
 #define I2C_PORT            0
 #define I2C_ADDRESS         0x23
-#define I2C_FREQUENCY       400000    //100k hz //400k needed?
+#define I2C_FREQUENCY       100000    //100k hz //400k needed?
 
 
-
+extern unsigned short dli;
+extern unsigned short cmd_offset;
 
 /*-----------------------------------------------------------------------------
  * Global Variables Declarations
@@ -40,10 +42,6 @@ typedef struct
 {
 	int pin;
 }GPIO_HANDLE;
-
-typedef struct {
-	int port;
-}I2C_HANDLE;
 
 
 static struct {
@@ -55,19 +53,14 @@ static struct {
 
 
 
-unsigned short dli;
-unsigned short cmd_offset = 0;
-
 /*-----------------------------------------------------------------------------
  * Global Function Declarations
  *---------------------------------------------------------------------------*/
 
-void I2C_Open(I2C_HANDLE *p, int i, int j, int k, int l);
-void I2C_Close(I2C_HANDLE *p);
-
-
-int I2C_Write(I2C_HANDLE *p, UINT8 addr, int size, UINT8 *command);
-int I2C_Transaction(I2C_HANDLE *p, UINT8 addr, int size, UINT8 *command, int size2, UINT8 *retBuf);
+int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2);
+int I2C_Close(I2C_HANDLE *handle);
+int I2C_Write(I2C_HANDLE *handle, UINT8 addr, int size, UINT8 *command);
+int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2);
 
 
 
@@ -90,11 +83,11 @@ void host_command(UINT8 command)
 {
     UINT8 data[3] = {};
 
-    data[0] = 0x40 | (command & 0x3F);      // Command[5:0]   // I dont think this is what the arduino code was doing.
+    data[0] = 0x40 | (command & 0x3F);      // Command[5:0]
     data[1] = 0x00;                         // [15:8]
     data[2] = 0x00;                         // [7:0]
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, 3, &command);
+    I2C_Write(&_ft800.i2c, _ft800.addr, 3, &command);
 }
 
 void wr8(UINT32 addr, ft_uint8_t value)
@@ -107,7 +100,7 @@ void wr8(UINT32 addr, ft_uint8_t value)
     data[2] = addr & 0xFF;
     data[3] = value;
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, sizeof(data), data);
+    I2C_Write(&_ft800.i2c, _ft800.addr, sizeof(data), data);
 }
 
 void wr16(UINT32 addr, ft_uint16_t value)
@@ -121,7 +114,7 @@ void wr16(UINT32 addr, ft_uint16_t value)
     data[3] = value & 0xFF;
     data[4] = value>>8 & 0xFF;
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, 5, data);
+    I2C_Write(&_ft800.i2c, _ft800.addr, 5, data);
 }
 
 void wr32(UINT32 addr, ft_uint32_t value)
@@ -137,7 +130,7 @@ void wr32(UINT32 addr, ft_uint32_t value)
     data[5] = value>>16 & 0xFF;
     data[6] = value>>24 & 0xFF;
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, 7, data);
+    I2C_Write(&_ft800.i2c, _ft800.addr, 7, data);
 }
 
 ft_uint8_t rd8(UINT32 addr)
@@ -151,9 +144,9 @@ ft_uint8_t rd8(UINT32 addr)
 
     // ret is error code and should be check
     // step 1 -- 10
-    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
-                            3, data,    //tx
-                            1, data);   //rx
+    I2C_Transaction(&_ft800.i2c, _ft800.addr,
+                            data,3,     //tx
+                            data,1);   //rx
 
     return (ft_uint8_t)data[0];
 }
@@ -167,9 +160,9 @@ ft_uint16_t rd16(UINT32 addr)
     data[1] = addr>>8 & 0xFF;
     data[2] = addr & 0xFF;
 
-    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
-                            3, data,
-                            2, data);
+    I2C_Transaction(&_ft800.i2c, _ft800.addr,
+                            data,3,
+                            data,2);
 
     return (ft_uint16_t)((data[0] << 8) | (data[1]));
 }
@@ -183,9 +176,9 @@ ft_uint32_t rd32(UINT32 addr)
     data[1] = addr>>8 & 0xFF;
     data[2] = addr & 0xFF;
 
-    I2C_Transaction(&_ft800.i2c, _ft800.addr<<1,
-                            3, data,
-                            4, data);
+    I2C_Transaction(&_ft800.i2c, _ft800.addr,
+                            data,3,
+                            data,4);
 
     return (ft_uint32_t)((data[0] << 24) | (data[1] << 16)
                        | (data[2] << 8)  | (data[3]));
@@ -217,7 +210,7 @@ ft_uint8_t wr8s(UINT32 addr, ft_char8_t *s)   // max 20 bytes of data excluding 
       data[i+3] = 0x00;
     }
 
-    I2C_Write(&_ft800.i2c, _ft800.addr<<1, (length + 3 + allignment), data);
+    I2C_Write(&_ft800.i2c, _ft800.addr, (length + 3 + allignment), data);
 
     ufree(data);
     return i;
@@ -255,6 +248,7 @@ void cmd(ft_uint32_t command){
 void i2c_LCD_port_OPEN()
 {
     I2C_Open(&_ft800.i2c, I2C_PORT, I2C_FREQUENCY, 30, 1);
+	_ft800.addr = I2C_ADDRESS&0xFE;
 }
 
 void i2c_LCD_port_CLOSE()
@@ -269,34 +263,110 @@ void i2c_LCD_port_CLOSE()
 
 
 
-
-
-/// REDO: Just so project compiles
-
-
-int I2C_Write(I2C_HANDLE *p, UINT8 addr, int size, UINT8 *command)
+/*
+ * @breif: use to open and init i2c port
+ * @ret: returns error code
+ *
+ */
+int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, UINT8 notUsed2)
 {
-	addr = 0;
+	int error = 0;
+	//_Uint32t speed = 10000; // nice and slow (will work with 200000)
+	//i2c_addr_t address;
+	//address.fmt = I2C_ADDRFMT_7BIT;
+	//address.addr = 0x90;
+
+	if (port > 1 || port < 0)
+	{ return -1; }
+
+	handle->devName[8] = ('0' + port);
+	handle->bus_speed = i2cFrequency;
+
+	if ((handle->fd = open("/dev/i2c1", O_RDWR)) < 0)
+	{ return -1; }
+
+	error = devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(i2cFrequency), sizeof(i2cFrequency), NULL);
+	//fprintf(stderr, "Error setting the I2C bus speed: %s\n",strerror ( error ));
+
+
+
+	return error;
+}
+
+/*
+ * @breif: use to close i2c port
+ * @ret: returns error code
+ *
+ */
+int I2C_Close(I2C_HANDLE *handle)
+{
+	return close(handle->fd);
+}
+
+/*
+ * @breif: use to write data to a i2c salve
+ * @ret: returns error code
+ *
+ * @note: addr is not address of slave but address of register at slave
+ *
+ */
+int I2C_Write(I2C_HANDLE *handle, UINT8 addr, int size, UINT8 *command)
+{
+	i2c_send_t hdr;
+	iov_t siov[2];
+
+	hdr.slave.addr = addr;
+	hdr.slave.fmt = I2C_ADDRFMT_7BIT;
+	hdr.len = size;
+	hdr.stop = 1;
+
+	SETIOV(&siov[0], &hdr, sizeof(hdr));
+	SETIOV(&siov[1], &command[0], size);
+
+
+	int error = devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
+
+	//fprintf(stderr, "Error sending i2c msg: %s\n",strerror ( error ));
+
+	return error;
+}
+
+/*
+ * @breif: use to write then read a i2c salve.. i.e. reading a register from the slave
+ * @ret: returns error code
+ *
+ * @note: addr is not address of slave but address of register at slave
+ *
+ */
+
+int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2)
+{
+	i2c_sendrecv_t  hdr;
+	iov_t siov[2] = {};
+	iov_t riov[2] = {};
+
+	hdr.slave.addr = addr;
+	hdr.slave.fmt = I2C_ADDRFMT_7BIT;
+	hdr.send_len = size;
+	hdr.recv_len = size2;
+	hdr.stop = 1;
+
+    SETIOV(&siov[0], &hdr, sizeof(hdr));	// setup siov
+    SETIOV(&siov[1], &sndBuf[0], size);
+
+    SETIOV(&riov[0], &hdr, sizeof(hdr));	// setup riov
+    SETIOV(&riov[1], retBuf, size2);
+
+    // return success??
+	devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
+//	devctlv(handle->fd, DCMD_I2C_RECV, 0, 2, NULL, riov, NULL);
+
+
 	return 0;
 }
 
 
-int I2C_Transaction(I2C_HANDLE *p, UINT8 addr, int size, UINT8 *command, int size2, UINT8 *retBuf)
-{
-	return 0;
-}
 
-
-void I2C_Open(I2C_HANDLE *p, int i, int j, int k, int l)
-{
-	i = 1;
-	return;
-}
-
-void I2C_Close(I2C_HANDLE *p)
-{
-	return;
-}
 
 
 void *umalloc(int size)

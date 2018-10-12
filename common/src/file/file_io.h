@@ -63,7 +63,7 @@ bool read_pid_chid_FromFile(int *pid, int *chid, char *file2Read);
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char mode = 'w');
+bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char *mode = "w");
 
 
 /* ----------------------------------------------------	*
@@ -71,7 +71,7 @@ bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char mode = 'w'
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Read, char mode = 'r');
+bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Read, char *mode = "r");
 
 
 /* ----------------------------------------------------	*
@@ -79,7 +79,7 @@ bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Rea
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char mode = 'r');
+bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char *mode = "r");
 
 
 /* ----------------------------------------------------	*
@@ -87,7 +87,7 @@ bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char mode =
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool write_string_ToFile(std::string *buf, std::string *file2Write, char mode = 'w');
+bool write_string_ToFile(std::string *buf, std::string *file2Write, char *mode = "w");
 
 
 /* ----------------------------------------------------	*
@@ -95,7 +95,15 @@ bool write_string_ToFile(std::string *buf, std::string *file2Write, char mode = 
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char mode = 'w');
+bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char *mode = "w");
+
+
+/* ----------------------------------------------------	*
+ *	@read_string_FromFile Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool write_string_ToFile(std::string *buf, char *file2Write, char *mode = "w");
 
 #endif /* SRC_FILE_FILE_IO_H_ */
 

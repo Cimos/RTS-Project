@@ -21,12 +21,17 @@
 #include <sys/neutrino.h>
 #include <strings.h>
 
+#include "../i2c/i2c_HAL.h"
+
+
 #ifndef SRC_HARDWARE_SUPPORT_FT800_LCDTHREAD_H_
 #define SRC_HARDWARE_SUPPORT_FT800_LCDTHREAD_H_
 
 
 typedef struct {
-
+	// ********* I2C
+		I2C_HANDLE I2C_handle = {"/dev/i2c", 1, bus_speed::BAUD_100K};
+		UINT8 slave_addr = 0x23;
 }_self;
 
 // ---------------------------------------------------------------------------

@@ -26,18 +26,39 @@
 *---------------------------------------------------------------------------*/
 
 #include "../../public/debug.h"
-
+//
 #include <stdint.h>        // for unit32 types
 #include <stdlib.h>
+#include <sys/iofunc.h>
+
 //#include <stdio.h>
 #include <time.h>
 /*-----------------------------------------------------------------------------
 * Definitions
 *---------------------------------------------------------------------------*/
 
+#define MSG_SIZE 10
+#define CONTROLHUB_SERVER "ControlServer.info"
+//#define TRAFFIC_L1	0x10
+//#define TRAFFIC_L2	0x20
+//#define TRAIN_I1	0x30
+//#define CONTROL_H1	0x40
+
+
+
+
+enum clients
+{
+	DEFAULT_CLT = 0,
+	TRAFFIC_L1,
+	TRAFFIC_L2,
+	TRAIN_I1,
+	CONTROL_H1
+};
+
 enum trafficLightStates
 {
-    DEFAULT_TLS = 0,               // Default state for start up
+    DEFAULT_TLS = 0,            // Default state for start up
     NSG,                        // North/South Green
     NSY,                        // North/South Yellow
     NSYG,                       // North/South Turn Green
@@ -51,12 +72,11 @@ enum trafficLightStates
     ERROR_2,                    // Error States 2
     ERROR_3,                    // Error States 3
     ERROR_4                     // Error States 4
-
 };
 
 enum trainStationStates
 {
-    DEFAULT_TSS = 0,               // Default state for start up
+    DEFAULT_TSS = 0,            // Default state for start up
     T1_ARIVING,                 // Line 1 Train Arriving
     T1_DEPARTING,               // Line 1 Train Departing
     T2_ARIVING,                 // Line 2 Train Arriving
@@ -81,18 +101,35 @@ typedef struct _controlHubTointersection
 {
     trafficLightTiming lightTiming;
     trafficLightStates currentState;
-
 }controler2Intersection;
 
 
 typedef struct
 {
-    time_t currentTime;
+    time_t time;				// Gets the time
+	struct tm currentTime;	// Required time_t to get a full date and time
+
     time_t morningPeakStart;
     time_t morningPeakFinish;
     time_t eveningPeakStart;
     time_t eveningPeakFinish;
+
 }systemTimeAlignment;
+
+
+
+typedef struct
+{
+	struct _pulse hdr; // Our real data comes after this header
+	int ClientID; // our data (unique id from client)
+	controler2Intersection data;     // our data
+} _data;
+
+typedef struct
+{
+	struct _pulse hdr;  // Our real data comes after this header
+    char buf[MSG_SIZE]; // Message we send back to clients to tell them the messages was processed correctly.
+} _reply;
 
 
 

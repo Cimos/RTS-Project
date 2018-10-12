@@ -71,7 +71,7 @@ bool checkIfFileExists(const char *fileName, int mode)
  *	@breif: 											*
  *	@return:returns true or false for success			*
  * ---------------------------------------------------	*/
-bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char mode)
+bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char *mode)
 {
 	FILE *fp;
 	int ret = 0, errorVal;
@@ -80,7 +80,7 @@ bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char mode)
 	std::string str("PID=" + std::to_string(pid) +",CID=" + std::to_string(chid) + ";");
 	//str = "PID=" + std::to_string(pid) +",CID=" + std::to_string(chid) + ";";
 
-	fp = fopen(file2Write2, &mode);
+	fp = fopen(file2Write2, mode);
 	DEBUGF("File Open:\n");
 
 	// setting errno to know val
@@ -202,13 +202,13 @@ bool read_pid_chid_FromFile(int *pid, int *chid, char *file2Read)
  *														*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Read, char mode)
+bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Read, char *mode)
 {
 	FILE *fp;
 	char *line = (char *)malloc(size2Read);
 
 	// Open file with read only
-	fp = fopen(file2Read->c_str(), &mode );	// mode = read only
+	fp = fopen(file2Read->c_str(), mode );	// mode = read only
 	DEBUGF("File Open:\n");
 
 
@@ -263,13 +263,13 @@ bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Rea
  *														*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char mode)
+bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char *mode)
 {
 	FILE *fp;
 	char *line = (char *)malloc(sizeOfBuf);
 
 	// Open file with read only
-	fp = fopen(file2Read,  &mode );	// mode = read only
+	fp = fopen(file2Read,  mode );	// mode = read only
 	DEBUGF("File Open:\n");
 
 
@@ -325,12 +325,12 @@ bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char mode)
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char mode)
+bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char *mode)
 {
 	FILE *fp;
 	int ret = 0, errorVal;
 	// Open file with read only
-	fp = fopen(file2Write, &mode );	// mode = read only
+	fp = fopen(file2Write, mode );	// mode = read only
 	DEBUGF("File Open:\n");
 
 
@@ -396,12 +396,86 @@ bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char mode)
  *														*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool write_string_ToFile(std::string *buf, std::string *file2Write, char mode)
+bool write_string_ToFile(std::string *buf, std::string *file2Write, char *mode)
 {
 	FILE *fp;
 	int ret = 0, errorVal;
 	// Open file with read only
-	fp = fopen(file2Write->c_str(), &mode );	// mode = read only
+	fp = fopen(file2Write->c_str(), mode );	// mode = read only
+	DEBUGF("File Open:\n");
+
+
+	if( fp != NULL )
+	{
+		// setting errno to know val
+		errno = EOK;
+
+		DEBUGF("File Writing:\n");
+		ret = fwrite(buf->c_str(), sizeof(char), buf->length(), fp );
+
+		// getting errno val
+		errorVal = errno;
+
+		// error if write didnt work properly
+		if (errorVal != EOK)
+		{
+			DEBUGF("Error: %s\n", strerror(errorVal));
+			return false;
+		} else if (ret <= 0)
+		{
+			DEBUGF("Error with write file info\n");
+			return false;
+		}
+
+	}
+	else
+	{
+		// return failure
+		return false;
+	}
+
+	// close file
+	fclose(fp);
+	DEBUGF("File Close:\n");
+
+	// return success
+	return true;
+}
+
+
+
+
+
+
+
+/* ----------------------------------------------------	*
+ *	@write_string_ToFile Implementation:				*
+ *	@brief:												*
+ *	@description:										*
+ *														*
+ * 		a	:	Append: create a new file or open		*
+ * 				the file for writing at its end.		*
+ * 		a+	:	Append: open the file or create it		*
+ * 				for update, writing at end-of-file;		*
+ * 				use the default file translation.		*
+ * 		r	:	Open the file for reading.				*
+ * 		r+	:	Open the file for update (reading		*
+ * 				and/or writing);						*
+ * 				use the default file translation.		*
+ * 		w	:	Create the file for writing,			*
+ * 				or truncate it to zero length.			*
+ * 		w+	:	Create the file for update, or			*
+ * 				truncate it to zero length;				*
+ * 				use the default file translation		*
+ *														*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+bool write_string_ToFile(std::string *buf, char *file2Write, char *mode)
+{
+	FILE *fp;
+	int ret = 0, errorVal;
+	// Open file with read only
+	fp = fopen(file2Write, mode );	// mode = read only
 	DEBUGF("File Open:\n");
 
 

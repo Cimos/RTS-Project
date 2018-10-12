@@ -424,7 +424,7 @@ uint32_t KeypadReadIObit(uintptr_t gpio_base, uint32_t BitsToRead)  {
  * ---------------------------------------------------	*/
 char DecodeKeyValue(uint32_t word)
 {
-	char ret;
+	char ret = 0;
 	switch(word)
 	{
 		case 0x01:
