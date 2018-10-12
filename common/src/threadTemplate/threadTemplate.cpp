@@ -26,7 +26,7 @@
 * Definitions
 *---------------------------------------------------------------------------*/
 
-#define RING_BUFFER_SIZE 22
+#define RING_BUFFER_SIZE 100
 
 
 // Use to lock mutex
@@ -271,7 +271,7 @@ void WorkerThread::Private::mainWorkThread(void *appData)
 	int rIndex = 0, wIndex = 0;
 	bool kA = false;
 	//bool successful = 0;
-
+	workBuf tmp;
 	while (true)
 	{
 		GET_WORKER_THREAD_KEEPALIVE(this, kA);
@@ -297,10 +297,12 @@ void WorkerThread::Private::mainWorkThread(void *appData)
 
 		// Actual work being done here.
 		Lock(rBuf.index_mtx);
-		if (cb != NULL) {
-			cb(&rBuf.work[rIndex]);
-		}
+		tmp = rBuf.work[rIndex];
 		Unlock(rBuf.index_mtx);
+
+		if (cb != NULL) {
+			cb(&tmp);
+		}
 
 
 		// delete work buff

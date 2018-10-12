@@ -228,6 +228,8 @@ int main(void)		//TODO: set date and time
 
 void *work_cb(workBuf *work)
 {
+	usleep(1000);
+
 	printf("Buf = %s\n",work->data->c_str());
 	printf("Size = %d\n",work->size);
 	printf("Mode = %d\n",work->mode);
