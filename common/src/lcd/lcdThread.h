@@ -45,7 +45,7 @@ int i2cInit(_self *self);
 int lcdInit(_self *self);
 
 
-
+void Screen_animations(int i);
 
 
 
