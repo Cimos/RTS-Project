@@ -9,6 +9,7 @@
 
 
 #include "../../public/lcdThread.h"
+#include <unistd.h>
 
 
 
@@ -68,8 +69,38 @@ int lcdInit(_self *self)
 
 
 
+
+
+
+
+
+void Screen_animations(int i)   // increment i
+{
+  dli = 0; // start writing the display list
+  dl_cmd(CLEAR(1, 1, 1)); // clear screen
+  dl_cmd(BEGIN(BITMAPS)); // start drawing bitmaps
+  dl_cmd(VERTEX2II(220, 110, 31, 'F')); // ascii F in font 31
+  dl_cmd(VERTEX2II(244, 110, 31, 'T')); // ascii T
+  dl_cmd(VERTEX2II(270, 110, 31, 'D')); // ascii D
+  dl_cmd(VERTEX2II(299, 110, 31, 'I')); // ascii I
+  dl_cmd(END());
+  dl_cmd(COLOR_RGB(255, 0, 0)); // change color to red
+  dl_cmd(POINT_SIZE(320)); // set point size
+  dl_cmd(BEGIN(POINTS)); // start drawing points
+  dl_cmd(VERTEX2II(i%480, i%272, 0, 0)); // red point
+  dl_cmd(END());
+  dl_cmd(DISPLAY());
+  usleep(1);
+  wr8(REG_DLSWAP,DLSWAP_FRAME);
+}
+
+
+
 // ---------------------------------------------------------------------------
 //							Local Functions Implementation
 // ---------------------------------------------------------------------------
+
+
+
 
 

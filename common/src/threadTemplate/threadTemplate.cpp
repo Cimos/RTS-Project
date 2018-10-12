@@ -26,7 +26,7 @@
 * Definitions
 *---------------------------------------------------------------------------*/
 
-#define RING_BUFFER_SIZE 12
+#define RING_BUFFER_SIZE 22
 
 
 // Use to lock mutex
@@ -114,12 +114,12 @@ public:
 	workBuf work[RING_BUFFER_SIZE] = {};
 	int readIndex = 0;
 	int writeIndex = 0;
+
 };
 
 /*-----------------------------------------------------------------------------
 * Global Function Declarations
 *---------------------------------------------------------------------------*/
-DelayTimer threadSleep(false, 1, 1000000, 0, 0);
 
 //------------------------------------------------------------------------------
 // Public Declarations
@@ -135,8 +135,10 @@ public:
 	pthread_mutex_t keepAliveWork_mtx = PTHREAD_MUTEX_INITIALIZER;  // needs to be set to PTHREAD_MUTEX_INITIALIZER;
 	pthread_mutex_t work_mtx = PTHREAD_MUTEX_INITIALIZER;  // needs to be set to PTHREAD_MUTEX_INITIALIZER;
 	pthread_t *workerThread = NULL;
+	DelayTimer *noWorkSleep;
 
 	Private();
+	Private(int Timer_base, long Init_time, int Interval_base, long Interval_time);
 	~Private();
 
 	// Main Worker Thread
@@ -151,7 +153,9 @@ public:
 	// Credit were credit is due: https://stackoverflow.com/questions/38224532/pthread-create-invalid-use-of-non-static-member-function
     static void* main_wrapper(void* object);
 
+
 private:
+
 };
 
 
@@ -161,7 +165,13 @@ private:
 
 WorkerThread::WorkerThread()
 {
-	_pimpl = new Private();
+
+	_pimpl = new Private(1, 1000000, 0, 0);
+}
+
+WorkerThread::WorkerThread(int Timer_base, long Init_time, int Interval_base, long Interval_time)
+{
+	_pimpl = new Private(Timer_base, Init_time, Interval_base, Interval_time);
 }
 
 /**
@@ -223,9 +233,18 @@ void *WorkerThread::setWorkFunction(void *(*_cb)(workBuf *_work))
 WorkerThread::Private::Private()
 {
 	workerThread = new pthread_t;
-
+	noWorkSleep = new DelayTimer(false, 1, 1000000, 0, 0);
 	pthread_create(workerThread, NULL, main_wrapper, (void*)this);
 	
+	//Allow scheduler to start main_wrapper
+	usleep(1);
+}
+WorkerThread::Private::Private(int Timer_base, long Init_time, int Interval_base, long Interval_time)
+{
+	workerThread = new pthread_t;
+	noWorkSleep = new DelayTimer(false, Timer_base, Init_time, Interval_base, Interval_time);
+	pthread_create(workerThread, NULL, main_wrapper, (void*)this);
+
 	//Allow scheduler to start main_wrapper
 	usleep(1);
 }
@@ -239,6 +258,7 @@ WorkerThread::Private::~Private()
 	pthread_join(*workerThread, NULL);
 
 	delete workerThread;
+	delete noWorkSleep;
 }
 
 void* WorkerThread::Private::main_wrapper(void* object)
@@ -266,9 +286,8 @@ void WorkerThread::Private::mainWorkThread(void *appData)
 			GET_WORKER_THREAD_KEEPALIVE_AND_RINGBUFFER_INDEX(this, kA, rBuf, rIndex, wIndex);
 			if (!kA) { return; }
 
-			//TODO: Add in chrono sleep here
-			// std::this_thread::sleep_for(std::chrono::milliseconds(1));
-			threadSleep.createTimer();	//sleep for 1 millisecond
+			//Makesure this timer works
+			noWorkSleep->createTimer();	//sleep for time that was set
 
 		}
 

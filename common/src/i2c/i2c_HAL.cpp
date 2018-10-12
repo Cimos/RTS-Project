@@ -17,6 +17,8 @@
 #include <hw/i2c.h>
 #include <fcntl.h>
 #include "../FT800/FT800.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 #define ACTIVE  0x00
 #define STANDBY 0x41
@@ -28,8 +30,8 @@
 #define CORERST 0x68
 
 #define I2C_PORT            0
-#define I2C_ADDRESS         0x23
-#define I2C_FREQUENCY       100000    //100k hz //400k needed?
+#define I2C_ADDRESS         0x22
+#define I2C_FREQUENCY       400000    //100k hz //400k needed?
 
 
 extern unsigned short dli;
@@ -248,7 +250,7 @@ void cmd(ft_uint32_t command){
 void i2c_LCD_port_OPEN()
 {
     I2C_Open(&_ft800.i2c, I2C_PORT, I2C_FREQUENCY, 30, 1);
-	_ft800.addr = I2C_ADDRESS&0xFE;
+	_ft800.addr = I2C_ADDRESS;
 }
 
 void i2c_LCD_port_CLOSE()
@@ -279,13 +281,14 @@ int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, 
 	if (port > 1 || port < 0)
 	{ return -1; }
 
+	//TODO: get this in a char array
 	handle->devName[8] = ('0' + port);
 	handle->bus_speed = i2cFrequency;
 
 	if ((handle->fd = open("/dev/i2c1", O_RDWR)) < 0)
 	{ return -1; }
 
-	error = devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(i2cFrequency), sizeof(i2cFrequency), NULL);
+	error = devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(handle->bus_speed), sizeof(handle->bus_speed), NULL);
 	//fprintf(stderr, "Error setting the I2C bus speed: %s\n",strerror ( error ));
 
 
@@ -342,25 +345,46 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, int size, UINT8 *command)
 int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2)
 {
 	i2c_sendrecv_t  hdr;
+	i2c_send_t  hdr_send;
+	i2c_recv_t  hdr_recv;
 	iov_t siov[2] = {};
 	iov_t riov[2] = {};
 
-	hdr.slave.addr = addr;
-	hdr.slave.fmt = I2C_ADDRFMT_7BIT;
-	hdr.send_len = size;
-	hdr.recv_len = size2;
-	hdr.stop = 1;
+//	hdr.slave.addr = addr;
+//	hdr.slave.fmt = I2C_ADDRFMT_7BIT;
+//	hdr.send_len = size;
+//	hdr.recv_len = size2;
+//	hdr.stop = 1;
+//
+//    SETIOV(&siov[0], &hdr, sizeof(hdr));	// setup siov
+//    SETIOV(&siov[1], &sndBuf[0], size);
+//
+//    SETIOV(&riov[0], &hdr, sizeof(hdr));	// setup riov
+//    SETIOV(&riov[1], retBuf, size2);
 
-    SETIOV(&siov[0], &hdr, sizeof(hdr));	// setup siov
+
+
+	hdr_send.slave.addr = addr;
+	hdr_send.slave.fmt = I2C_ADDRFMT_7BIT;
+	hdr_send.len = size;
+	hdr_send.stop = 1;
+	hdr_recv.slave.addr = addr;
+	hdr_recv.slave.fmt = I2C_ADDRFMT_7BIT;
+	hdr_recv.len = size2;
+	hdr_recv.stop = 1;
+
+    SETIOV(&siov[0], &hdr_send, sizeof(hdr_send));	// setup siov
     SETIOV(&siov[1], &sndBuf[0], size);
-
-    SETIOV(&riov[0], &hdr, sizeof(hdr));	// setup riov
+    SETIOV(&riov[0], &hdr_recv, sizeof(hdr_recv));	// setup riov
     SETIOV(&riov[1], retBuf, size2);
 
-    // return success??
-	devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
-//	devctlv(handle->fd, DCMD_I2C_RECV, 0, 2, NULL, riov, NULL);
 
+	//devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
+	devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
+	devctlv(handle->fd, DCMD_I2C_RECV, 2, 0, riov, NULL, NULL);
+
+	//    fprintf(stderr, "Error setting RTS: %s\n",
+//        strerror ( error ));
 
 	return 0;
 }

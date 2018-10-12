@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "lcdThread.h"
 
 //#include "threadTemplate.h"
 //#include "lcdThread.h"
@@ -30,6 +31,9 @@
 #include "file_io.h"
 #include "keyPad.h"
 #include "debug.h"
+#include "threadTemplate.h"
+
+
 #include <iostream>
 
 #include <string.h>
@@ -114,6 +118,9 @@ static struct
 	// ********* Keypad
 	struct
 	{
+		WorkerThread wk;// because keyPad thread is time dependent, a working thread is passed
+						// the key press which can tak all the time it needs to do the work.
+		void* (*func)(workBuf *work);
 		keyPad thread;
 		pthread_attr_t keyPad_attr;
 		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -124,7 +131,9 @@ static struct
 
 	// ******** Current Time
 	time_t time;
-	 struct tm *currentTime;
+	struct tm *currentTime;
+
+	// Create Worker Thread
 }self;
 
 
@@ -184,9 +193,14 @@ int main(void)		//TODO: set date and time
 
 
 
+	int i = 0;
 
-
-	while(1) { usleep(500); }
+	while(1) {
+		usleep(1000);
+		Screen_animations(i++);
+		i++;
+		i++;
+	}
 
 	return EXIT_SUCCESS;
 }
@@ -438,8 +452,14 @@ void *server(void *appData)
  * ---------------------------------------------------	*/
 void keypad_cb(char keyPress)
 {
+	// Because this callback has no abstraction between it and looking for the next keypress if you were to hold this
+	// function up too much you will miss the next key press.
+	// This is why we used an additional working thread which is passed the work and it can be a lower
+	// prio thread that can take all the time it wants.
+
 	Lock(self.kp.Mtx);
-	self.kp.UserInput = keyPress;
+	self.kp.wk.doWork(&keyPress, 1, NULL);
+	//self.kp.UserInput = keyPress;
 	Unlock(self.kp.Mtx);
  	DEBUGF("Key Pressed: %c", keyPress);
 }

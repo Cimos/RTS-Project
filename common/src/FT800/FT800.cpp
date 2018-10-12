@@ -68,24 +68,27 @@ void FT800_Init(void)
   usleep(1);
   wake_screen();
 
+//
+//  host_command(ACTIVE); //send host command "ACTIVE" to FT800
+//  host_command(CLKEXT); //send command to "CLKEXT" to FT800
+//  host_command(CLK48M);
+//
+//  usleep(1000);
+//  host_command(SLEEP);
+//  usleep(1000);
+//  host_command(ACTIVE); //send host command "ACTIVE" to FT800
+//  usleep(1000);
+//
+//  reg_id = rd8(REG_ID);
+//
+//
+//  if (reg_id != 0x7C)
+//  {
+//  printf("FT800 could not be initialised! BAD ID\r\n");
+//  return;
+//  }
 
-  host_command(ACTIVE); //send host command "ACTIVE" to FT800
-  host_command(CLKEXT); //send command to "CLKEXT" to FT800
-  host_command(CLK48M);
 
-  usleep(1000);
-  host_command(SLEEP);
-  usleep(1000);
-  host_command(ACTIVE); //send host command "ACTIVE" to FT800
-  usleep(1000);
-
-  reg_id = rd8(REG_ID);
-
-  if (reg_id != 0x7C)
-  {
-  printf("FT800 could not be initialised! BAD ID\r\n");
-  return;
-  }
 
   wr8(REG_PCLK, ZERO);    // Set PCLK to zero - don't clock the LCD until later
   wr8(REG_PWM_DUTY, ZERO);    // Turn off backlight
@@ -148,7 +151,7 @@ void FT800_Init(void)
   make_string(240,136,31,OPT_CENTER,COLOR_RGB(255,255,255), "Innovative Solutions");
   end_screen();
 
-  wr8(REG_PWM_DUTY, 96);
+  wr8(REG_PWM_DUTY, 255);
   usleep(1000);
 
   return;
