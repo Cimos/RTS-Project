@@ -153,9 +153,7 @@ public:
 	// Credit were credit is due: https://stackoverflow.com/questions/38224532/pthread-create-invalid-use-of-non-static-member-function
     static void* main_wrapper(void* object);
 
-
 private:
-
 };
 
 
@@ -300,7 +298,7 @@ void WorkerThread::Private::mainWorkThread(void *appData)
 		// Actual work being done here.
 		Lock(rBuf.index_mtx);
 		if (cb != NULL) {
-			cb(rBuf.work);
+			cb(&rBuf.work[rIndex]);
 		}
 		Unlock(rBuf.index_mtx);
 

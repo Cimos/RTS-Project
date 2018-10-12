@@ -157,44 +157,44 @@ int main() {
 	//		Consumer/producer stuff
 
 	// set up location for data
-		data_ready = 0;
+	data_ready = 0;
 
-		// initialize the data, mutex and condvar
-		app_data data = { PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER };
+	// initialize the data, mutex and condvar
+	app_data data = { PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER };
 
-		pthread_t  th1, th2;
+	pthread_t  th1, th2;
 
-		void *retval;
+	void *retval;
 
-		//setup for thread priority
+	//setup for thread priority
 
-		//producer thread
-		pthread_attr_t th1_attr;
-		struct sched_param th1_param;
-		pthread_attr_init(&th1_attr);
-		pthread_attr_setschedpolicy(&th1_attr, SCHED_RR);
-		th1_param.sched_priority = 5;
-		pthread_attr_setschedparam(&th1_attr, &th1_param);
-		pthread_attr_setinheritsched(&th1_attr, PTHREAD_EXPLICIT_SCHED);
+	//producer thread
+	pthread_attr_t th1_attr;
+	struct sched_param th1_param;
+	pthread_attr_init(&th1_attr);
+	pthread_attr_setschedpolicy(&th1_attr, SCHED_RR);
+	th1_param.sched_priority = 5;
+	pthread_attr_setschedparam(&th1_attr, &th1_param);
+	pthread_attr_setinheritsched(&th1_attr, PTHREAD_EXPLICIT_SCHED);
 
-		//consumer thread
-		pthread_attr_t th2_attr;
-		struct sched_param th2_param;
-		pthread_attr_init(&th2_attr);
-		pthread_attr_setschedpolicy(&th2_attr, SCHED_RR);
-		th2_param.sched_priority = 4;
-		pthread_attr_setschedparam(&th2_attr, &th2_param);
-		pthread_attr_setinheritsched(&th2_attr, PTHREAD_EXPLICIT_SCHED);
+	//consumer thread
+	pthread_attr_t th2_attr;
+	struct sched_param th2_param;
+	pthread_attr_init(&th2_attr);
+	pthread_attr_setschedpolicy(&th2_attr, SCHED_RR);
+	th2_param.sched_priority = 4;
+	pthread_attr_setschedparam(&th2_attr, &th2_param);
+	pthread_attr_setinheritsched(&th2_attr, PTHREAD_EXPLICIT_SCHED);
 
-		// create the producer and consumer threads
-		pthread_create(&th1, &th1_attr, producer, &data);
-		pthread_create(&th2, &th2_attr, consumer, &data);
+	// create the producer and consumer threads
+	pthread_create(&th1, &th1_attr, producer, &data);
+	pthread_create(&th2, &th2_attr, consumer, &data);
 
-		// let the threads run for a bit
-		//sleep(Number_of_packets);
+	// let the threads run for a bit
+	//sleep(Number_of_packets);
 
-		//			END PRoducer/consumer
-		//*******************************************************************************
+	//			END PRoducer/consumer
+	//*******************************************************************************
 
 	//close state machine thread
 	//pthread_join(SMThread, &SMThreadRetval);

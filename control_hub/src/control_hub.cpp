@@ -150,7 +150,7 @@ void keypad_cb(char keyPress);
 void logData(_data *toLog);
 int printMenu(int mode);
 
-
+void *work_cb(workBuf *work);
 
 
 
@@ -161,12 +161,34 @@ int printMenu(int mode);
 int main(void)		//TODO: set date and time
 {
 
+
+
+	WorkerThread pingpong;
+
+	pingpong.setWorkFunction(work_cb);
+
+	while(1)
+	{
+	pingpong.doWork("Hello World", sizeof("Hello World"), 0);
+	pingpong.doWork("Hello World", sizeof("Hello World"), 0);
+	usleep(100000);
+	}
+
+
+
+
+
+
+
+
+
+
 	//char input = printMenu(1);
 	//std::cout << "Entered: " << input << std::endl;
-	FT800_Init();
+//	FT800_Init();
 
 
-	init();
+//	init();
 //	sem_t sem,*ptr_sema = &sem;
 //
 //	int sem_init( sem_t * sem,
@@ -175,31 +197,31 @@ int main(void)		//TODO: set date and time
 
 //	self.time = time(NULL);
 //	self.currentTime = localtime(&self.time);
-
-	_data tmp;
-
-	tmp.ClientID = 1;
-	tmp.data.currentState = trafficLightStates::EWYG;
-	tmp.data.lightTiming.ewStright = 100;
-	tmp.data.lightTiming.nsStright = 200;
-	tmp.data.lightTiming.ewTurn = 101;
-	tmp.data.lightTiming.nsTurn = 202;
-	logData(&tmp);
-
-
-
-
-
-
-
-
-	int i = 0;
+//
+//	_data tmp;
+//
+//	tmp.ClientID = 1;
+//	tmp.data.currentState = trafficLightStates::EWYG;
+//	tmp.data.lightTiming.ewStright = 100;
+//	tmp.data.lightTiming.nsStright = 200;
+//	tmp.data.lightTiming.ewTurn = 101;
+//	tmp.data.lightTiming.nsTurn = 202;
+//	logData(&tmp);
+//
+//
+//
+//
+//
+//
+//
+//
+//	int i = 0;
 
 	while(1) {
 		usleep(1000);
-		Screen_animations(i++);
-		i++;
-		i++;
+//		Screen_animations(i++);
+//		i++;
+//		i++;
 	}
 
 	return EXIT_SUCCESS;
@@ -212,7 +234,14 @@ int main(void)		//TODO: set date and time
 * Local Function Definitions
 *---------------------------------------------------------------------------*/
 
+void *work_cb(workBuf *work)
+{
+	printf("Buf = %s\n",work->data->c_str());
+	printf("Size = %d\n",work->size);
+	printf("Mode = %d\n",work->mode);
 
+	return NULL;
+}
 
 void init(void)
 {

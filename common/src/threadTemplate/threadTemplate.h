@@ -35,6 +35,7 @@ void *work_cb(workBuf *work)
 	printf("Size = %d\n",work->size);
 	printf("Mode = %d\n",work->mode);
 
+	return NULL;
 }
 */
 
