@@ -135,7 +135,7 @@ public:
 	pthread_mutex_t keepAliveWork_mtx = PTHREAD_MUTEX_INITIALIZER;  // needs to be set to PTHREAD_MUTEX_INITIALIZER;
 	pthread_mutex_t work_mtx = PTHREAD_MUTEX_INITIALIZER;  // needs to be set to PTHREAD_MUTEX_INITIALIZER;
 	pthread_t *workerThread = NULL;
-	DelayTimer *noWorkSleep;
+	//DelayTimer *noWorkSleep;
 
 	Private();
 	Private(int Timer_base, long Init_time, int Interval_base, long Interval_time);
@@ -231,7 +231,7 @@ void *WorkerThread::setWorkFunction(void *(*_cb)(workBuf *_work))
 WorkerThread::Private::Private()
 {
 	workerThread = new pthread_t;
-	noWorkSleep = new DelayTimer(false, 1, 1000000, 0, 0);
+	//noWorkSleep = new DelayTimer(false, 1, 1000000, 0, 0);
 	pthread_create(workerThread, NULL, main_wrapper, (void*)this);
 	
 	//Allow scheduler to start main_wrapper
@@ -240,7 +240,7 @@ WorkerThread::Private::Private()
 WorkerThread::Private::Private(int Timer_base, long Init_time, int Interval_base, long Interval_time)
 {
 	workerThread = new pthread_t;
-	noWorkSleep = new DelayTimer(false, Timer_base, Init_time, Interval_base, Interval_time);
+	//noWorkSleep = new DelayTimer(false, Timer_base, Init_time, Interval_base, Interval_time);
 	pthread_create(workerThread, NULL, main_wrapper, (void*)this);
 
 	//Allow scheduler to start main_wrapper
@@ -256,7 +256,7 @@ WorkerThread::Private::~Private()
 	pthread_join(*workerThread, NULL);
 
 	delete workerThread;
-	delete noWorkSleep;
+	//delete noWorkSleep;
 }
 
 void* WorkerThread::Private::main_wrapper(void* object)
@@ -285,8 +285,8 @@ void WorkerThread::Private::mainWorkThread(void *appData)
 			if (!kA) { return; }
 
 			//Makesure this timer works
-			noWorkSleep->createTimer();	//sleep for time that was set
-
+			//noWorkSleep->createTimer();	//sleep for time that was set
+			usleep(100000);
 		}
 
 		if (rBuf.work[rIndex].data == NULL)

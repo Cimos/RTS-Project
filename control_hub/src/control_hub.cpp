@@ -118,7 +118,7 @@ static struct
 	// ********* Keypad
 	struct
 	{
-		WorkerThread wk;// because keyPad thread is time dependent, a working thread is passed
+		//WorkerThread wk;// because keyPad thread is time dependent, a working thread is passed
 						// the key press which can tak all the time it needs to do the work.
 		void* (*func)(workBuf *work);
 		keyPad thread;
@@ -153,6 +153,7 @@ int printMenu(int mode);
 void *work_cb(workBuf *work);
 
 
+WorkerThread pingpong;
 
 
 /*-----------------------------------------------------------------------------
@@ -163,15 +164,14 @@ int main(void)		//TODO: set date and time
 
 
 
-	WorkerThread pingpong;
 
 	pingpong.setWorkFunction(work_cb);
+	init();
+
 
 	while(1)
 	{
-	pingpong.doWork("Hello World", sizeof("Hello World"), 0);
-	pingpong.doWork("Hello World", sizeof("Hello World"), 0);
-	usleep(100000);
+	sleep(1);
 	}
 
 
@@ -188,7 +188,6 @@ int main(void)		//TODO: set date and time
 //	FT800_Init();
 
 
-//	init();
 //	sem_t sem,*ptr_sema = &sem;
 //
 //	int sem_init( sem_t * sem,
@@ -215,14 +214,7 @@ int main(void)		//TODO: set date and time
 //
 //
 //
-//	int i = 0;
 
-	while(1) {
-		usleep(1000);
-//		Screen_animations(i++);
-//		i++;
-//		i++;
-	}
 
 	return EXIT_SUCCESS;
 }
@@ -248,7 +240,7 @@ void init(void)
 	std::string tmp(STARTUP_MSG);
 	write_string_ToFile(&tmp, CHLOG, "a+");
 
-	serverInit();
+	//serverInit();
 	keypadInit(5);
 }
 
@@ -486,11 +478,13 @@ void keypad_cb(char keyPress)
 	// This is why we used an additional working thread which is passed the work and it can be a lower
 	// prio thread that can take all the time it wants.
 
-	Lock(self.kp.Mtx);
-	self.kp.wk.doWork(&keyPress, 1, NULL);
-	//self.kp.UserInput = keyPress;
-	Unlock(self.kp.Mtx);
- 	DEBUGF("Key Pressed: %c", keyPress);
+//	Lock(self.kp.Mtx);
+//	self.kp.wk.doWork(&keyPress, 1, NULL);
+//	//self.kp.UserInput = keyPress;
+//	Unlock(self.kp.Mtx);
+// 	DEBUGF("Key Pressed: %c", keyPress);
+	pingpong.doWork(&keyPress, sizeof(keyPress), 0);
+
 }
 
 
