@@ -60,7 +60,6 @@ void *work_cb(workBuf *work)
 *---------------------------------------------------------------------------*/
 
 // Customize your working buffer/struct here to what you want.
-
 struct workBuf{
   std::string *data = NULL;
   int mode = 0;
@@ -82,6 +81,7 @@ public:
 	void *setWorkFunction(void *(*cb)(workBuf *_work));
 
 	WorkerThread();
+	WorkerThread(int Timer_base, long Init_time, int Interval_base, long Interval_time);	// Define the interval the worker thread checks for new work
 	~WorkerThread();
 };
 
