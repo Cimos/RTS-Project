@@ -120,7 +120,6 @@ int main() {
 	pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
 	pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setstacksize (&keyPad_attr, 8000);
-<<<<<<< HEAD
 	//create state machine thread.
 	pthread_t SMThread;
 	void *SMThreadRetval;
@@ -142,8 +141,6 @@ int main() {
 	pthread_create(&sesorInputThread, &sensorInput_attr, sensorInput_ex, NULL);
 	*/
 
-=======
->>>>>>> 1-project_dev
 
 	//create keypad object
 	keyPad kp;
@@ -155,28 +152,15 @@ int main() {
 	//pingpong.setWorkFunction(work_cb);
 	//pingpong.doWork("Hello World", sizeof("Hello World"), 0);
 
-<<<<<<< HEAD
 
 	//*****************************************************************************************
 	//		Consumer/producer stuff
-=======
-	while(1){
->>>>>>> 1-project_dev
 
 	// set up location for data
 		data_ready = 0;
 
-<<<<<<< HEAD
 		// initialize the data, mutex and condvar
 		app_data data = { PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER };
-=======
-		if (KeyPress == '1'){
-			cout << "rum" << endl;
-		}
-
-
-		cout << "print" << endl;
->>>>>>> 1-project_dev
 
 		pthread_t  th1, th2;
 
