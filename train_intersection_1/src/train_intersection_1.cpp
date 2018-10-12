@@ -94,15 +94,24 @@ DelayTimer twoMilSecTimer(true, 1, 2000000,1,2000000);
 void *producer(void *Data);
 void *consumer(void *Data);
 
-/*
+WorkerThread pingpong;
+
 void *work_cb(workBuf *work)
 {
 	printf("Buf = %s\n",work->data->c_str());
 	printf("Size = %d\n",work->size);
 	printf("Mode = %d\n",work->mode);
-
+	return NULL;
 }
-*/
+
+//get keypress
+void keypad_cb(char keypress){
+ 	KeyPress = keypress;
+ 	cout << KeyPress << endl;
+ 	pingpong.doWork(&keypress, sizeof(keypress), 0);
+ 	usleep(2);
+}
+
 
 /*-----------------------------------------------------------------------------
 * Main Function
@@ -141,16 +150,19 @@ int main() {
 	pthread_create(&sesorInputThread, &sensorInput_attr, sensorInput_ex, NULL);
 	*/
 
-
+	pingpong.setWorkFunction(work_cb);
 	//create keypad object
 	keyPad kp;
 	kp.registerCallback(keypad_cb);
 	kp.start(&keyPad_attr);	//start keypad
 
-	//void* func(workBuf *work)
-	//WorkerThread pingpong;
-	//pingpong.setWorkFunction(work_cb);
-	//pingpong.doWork("Hello World", sizeof("Hello World"), 0);
+
+
+	while(1){
+
+
+		sleep(1);
+	}
 
 
 	//*****************************************************************************************
@@ -394,12 +406,6 @@ void trainStateMachine(){
 }
 
 */
-
-//get keypress
-void keypad_cb(char keypress){
- 	KeyPress = keypress;
- 	cout << KeyPress << endl;
-}
 
 
 void *consumer(void *Data)
