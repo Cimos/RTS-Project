@@ -39,6 +39,7 @@
 #define CLK36M  0x61
 #define CORERST 0x68
 
+#define LCD_RST (1<<16)  // LCD_RST is connected to rst on the click breakout board		pin 16
 
 
 /*-----------------------------------------------------------------------------

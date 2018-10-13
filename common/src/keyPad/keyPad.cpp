@@ -209,7 +209,6 @@ keyPad::~keyPad()
     kA = false;
     Unlock();
 
-
 	pthread_join(*workerThread, NULL);
 
     delete(workerThread);
@@ -600,6 +599,7 @@ void* keyPad::mainWorkThread(void *appData)
 		cbTable = KeyPad->getCallback();
 	}
 
+
 	uintptr_t control_module = mmap_device_io(AM335X_CONTROL_MODULE_SIZE,AM335X_CONTROL_MODULE_BASE);
 	uintptr_t gpio1_base = mmap_device_io(AM335X_GPIO_SIZE, AM335X_GPIO1_BASE);
 
@@ -732,6 +732,8 @@ void* keyPad::mainWorkThread(void *appData)
 
 	} while(tempkA);
 
+
+	munmap_device_io(gpio1_base, AM335X_GPIO_SIZE);
     munmap_device_io(control_module, AM335X_CONTROL_MODULE_SIZE);
 
     printf("Thread Dead\n");
