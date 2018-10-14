@@ -10,7 +10,26 @@
 * 			Simon Maddison	s3493550
 * 			Shawn Buschmann	s3478646
 */
-
+/*
+ * Key pad bindings:
+ * 1 = Train 1 Inbound sensor 1
+ * 2 = Train 1 Inbound sesnor 2
+ * 3 = Train 1 Boom gate down sensor
+ * 4 = Train 1 Boomgate down Sensor
+ * 5 = Train 1 Outbound sensor
+ *
+ * 9  = Train 2 Inbound sensor 1
+ * 10 = Train 2 Inbound sesnor 2
+ * 11 = Train 2 Boom gate down sensor
+ * 12 = Train 2 Boomgate down Sensor
+ * 13 = Train 2 Outbound sensor
+ *
+ * LED mapping
+ * LED 0 = train 1 stop light
+ * LED 1 = train 2 stop light
+ * LED 2 = car stop light
+ * LED 3 = boomgate error
+ */
 
 /*-----------------------------------------------------------------------------
 * Included Files
@@ -26,6 +45,7 @@
 
 #include "threadTemplate.h"
 #include "DelayTimer.h"
+#include "boneGpio.h"
 
 using namespace std;
 
@@ -33,6 +53,11 @@ using namespace std;
 * Definitions
 *---------------------------------------------------------------------------*/
 #define IPC_BUFF_SIZE 100
+
+#define LED0	(1<<21)   // GPIO1_21
+#define LED1	(1<<22)   // GPIO1_22
+#define LED2	(1<<23)   // GPIO1_23
+#define LED3	(1<<24)   // GPIO1_24
 
 /*-----------------------------------------------------------------------------
 * Local Variables and Buffers
@@ -78,14 +103,13 @@ char lastSensorInputReset = '0';
 WorkerThread keyPadBuffer;
 my_data controlHubMsg;
 my_data *pmsg;
-
+bool LED_retval = false;
 
 
 /*-----------------------------------------------------------------------------
 * Threads Declarations
 *---------------------------------------------------------------------------*/
 void *trainStateMachine_ex(void *data);
-//void *sensorInput_ex(void *data);
 
 
 /*-----------------------------------------------------------------------------
@@ -97,10 +121,14 @@ void trainStateMachine();
 void keypad_cb(char keypress);
 DelayTimer boomGateTimer(true, 0, 3, 0, 3);	//boomgate error delay timer
 DelayTimer inboundSensorFaultTimer(true, 0, 2, 0, 2); //inbound train sensor fault timer
-DelayTimer twoMilSecTimer(true, 1, 2000000,1,2000000);
+DelayTimer oneMilSecTimer(true, 1, 1000000,1,1000000);
+DelayTimer flashLEDTimer(true, 1, 4500000000, 1, 4500000000);
 void *work_cb(workBuf *work);
 void keypad_cb(char keypress);
 int server();
+bool writeBoneLeds(uint32_t pin, bool setTo);
+void flashLED(int LED_num);
+
 
 
 /*-----------------------------------------------------------------------------
@@ -111,6 +139,7 @@ int main() {
 	printf("Welcome: Road railway crossing state machine\n");
 
 	keyPadBuffer.setWorkFunction(work_cb);
+
 
 	//Thread setup
 	//setup Keypad thread
@@ -180,8 +209,7 @@ void *work_cb(workBuf *work)
 void keypad_cb(char keypress){
  	//cout << keypress << endl;
  	keyPadBuffer.doWork(&keypress, sizeof(keypress), 0);
- 	//usleep(1);
- 	twoMilSecTimer.createTimer();
+ 	oneMilSecTimer.createTimer();
 }
 
 /*
@@ -208,20 +236,7 @@ int printCurrentState(int currentState){
 }
 */
 
-/*
- * getInputSensor() Key pad bindings:
- * 1 = Train 1 Inbound sensor 1
- * 2 = Train 1 Inbound sesnor 2
- * 3 = Train 1 Boom gate down sensor
- * 4 = Train 1 Boomgate down Sensor
- * 5 = Train 1 Outbound sensor
- *
- * 9  = Train 2 Inbound sensor 1
- * 10 = Train 2 Inbound sesnor 2
- * 11 = Train 2 Boom gate down sensor
- * 12 = Train 2 Boomgate down Sensor
- * 13 = Train 2 Outbound sensor
- */
+
 void getSensorInput(char input){
 	//sensorInput = getchar();			//if using keyboard
 	sensorInput = input;				//if using keyPad
@@ -277,6 +292,12 @@ void trainStateMachine(){
 
 	char lastSensorInput = lastSensorInputReset;
 	char oldMsgData = lastSensorInputReset;
+	bool hubCommand = false;
+	//turn off LEDs
+	LED_retval = writeBoneLeds(LED0, true);
+	LED_retval = writeBoneLeds(LED1, true);
+	LED_retval = writeBoneLeds(LED2, true);
+	LED_retval = writeBoneLeds(LED3, true);
 
 	while (keepLooping)
 	{
@@ -286,10 +307,9 @@ void trainStateMachine(){
 			oldMsgData = controlHubMsg.data;
 			lastSensorInput = sensorInput;
 		}
-		else								// no new input - back to top
+		else
 		{
-			twoMilSecTimer.createTimer();
-			//usleep(1);
+			oneMilSecTimer.createTimer();
 			continue;
 		}
 
@@ -303,10 +323,9 @@ void trainStateMachine(){
 			break;
 
 		case boomgateUpState:
-			if ((train_1_arrive_1 || train_1_arrive_2))
+			if (train_1_arrive_1 || train_1_arrive_2)
 			{
 				currentState = boomAlarmState;
-				inboundSensorFaultTimer.createTimer();
 
 				if(!train_1_arrive_1 || !train_1_arrive_2)
 				{
@@ -326,13 +345,14 @@ void trainStateMachine(){
 			}
 			else if (controlHubMsg.data == 'i')		//control hub boom down request
 			{
+				hubCommand = true;
 				cout << "control Hub message received: " << controlHubMsg.data << endl;
 				currentState = boomAlarmState;
 				controlHubMsg.data = lastSensorInputReset;
 			}
 			else{
 				currentState = boomgateUpState;
-				cout << "BOOMGATE UP" << endl;
+				cout << "BOOMGATE UP" << endl << endl;
 			}
 			break;
 
@@ -343,21 +363,39 @@ void trainStateMachine(){
 			if((train_1_boom_down == false) || (train_2_boom_down == false))
 			{
 				cout << "Boomgate DOWN FAULT" << endl;			//TODO send fault message
-			}													//TODO turn on in bound train stop lights
+				LED_retval = writeBoneLeds(LED0, false);		//turn on in bound train stop lights
+				LED_retval = writeBoneLeds(LED1, false);
+				LED_retval = writeBoneLeds(LED2, false);		//car stop light
+				while((train_1_boom_down == false) || (train_2_boom_down == false))
+				{
+					flashLED(3);		//flash boomgate fault lights
+				}
+				LED_retval = writeBoneLeds(LED0, true);		//turn off train stop lights
+				LED_retval = writeBoneLeds(LED1, true);
+			}
 			lastSensorInput = lastSensorInputReset;
 			break;
 
 		case boomgateDownState:
-			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2) && (controlHubMsg.data != '0'))
+			if( controlHubMsg.data == 'o')
+			{
+				hubCommand = false;
+			}
+			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2) && (hubCommand == false) && (controlHubMsg.data != '0')) //
 			{
 				currentState = boomgateUpState;
 				cout << "TRAIN OUTBOUND" << endl;
 				boomGateTimer.createTimer();
 				if((train_1_boom_down) || (train_2_boom_down))
 				{
-					cout << "Boomgate UP FAULT" << endl;		//TODO send fault message															//TODO turn on in bound train stop lights
-				}
+					cout << "Boomgate UP FAULT" << endl;		//TODO send fault message
+					while(train_1_boom_down || train_2_boom_down)
+					{
+						flashLED(3);		//flash boomgate fault lights
+					}
+				}												//TODO turn on in bound train stop lights
 				lastSensorInput = lastSensorInputReset;
+				LED_retval = writeBoneLeds(LED2, true);			//turn off car stop lights
 				break;
 			}
 			else
@@ -374,13 +412,44 @@ void trainStateMachine(){
 	}
 }
 
+void flashLED(int LED_num)
+{
+	int led_num = LED_num;
+	flashLEDTimer.createTimer();
+
+	if(led_num == 0)
+	{
+		LED_retval = writeBoneLeds(LED0, false);
+		flashLEDTimer.createTimer();
+		LED_retval = writeBoneLeds(LED0, true);
+	}else if(led_num == 1)
+	{
+		LED_retval = writeBoneLeds(LED1, false);
+		flashLEDTimer.createTimer();
+		LED_retval = writeBoneLeds(LED1, true);
+	}else if (led_num == 2)
+	{
+		LED_retval = writeBoneLeds(LED2, false);
+		flashLEDTimer.createTimer();
+		LED_retval = writeBoneLeds(LED2, true);
+	}else if(led_num == 3)
+	{
+		LED_retval = writeBoneLeds(LED3, false);
+		flashLEDTimer.createTimer();
+		LED_retval = writeBoneLeds(LED3, true);
+	}else
+	{
+		cout << "Error: wrong input led number into flashLED function." << endl;
+	}
+}
+
 
 /*** Server code ***/
 int server()
 {
 	// Get PID and create CHID
 	int serverPID = 0, chid = 0; 	// Server PID and channel ID
-	serverPID = getpid(); 		// get server process ID
+	serverPID = getpid(); 			// get server process ID
 
 	// Create Channel
 	chid = ChannelCreate(_NTO_CHF_DISCONNECT);
@@ -395,14 +464,6 @@ int server()
 	printf("  --> Process ID   : %d \n", serverPID);
 	printf("  --> Channel ID   : %d \n", chid);
 
-	/*
-	*   Your code here to write this information to a file at a known location so a client can grab it...
-	*
-	*   The data should be written to a file like:
-	*   /tmp/myServer.info
-	*	 serverPID  (first line of file)
-	*	 Channel ID (second line of file)
-	*/
 	//**************************************************************************************************
 	// create file and populate with PID and CHID
 	FILE *fp;
@@ -421,7 +482,6 @@ int server()
 
 
 	//**************************************************************************************************
-
 
 	int rcvid = 0, msgnum = 0;  	// no message received yet
 	int Stay_alive = 0, living = 0;	// server stays running (ignores _PULSE_CODE_DISCONNECT request)
