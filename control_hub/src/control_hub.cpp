@@ -24,10 +24,9 @@
 //#include "threadTemplate.h"
 //#include "lcdThread.h"
 //#include "DelayTimer.h"
-//#include "boneGpio.h"
 
+#include "boneGpio.h"
 #include <FT800.h>
-
 #include "file_io.h"
 #include "keyPad.h"
 #include "debug.h"
@@ -154,7 +153,8 @@ void *work_cb(workBuf *work);
 
 
 WorkerThread pingpong;
-
+#define LCD_RST (1<<16)  // LCD_RST is connected to rst on the click breakout board		pin 16
+#define GPMC_A0_GPIO1_16 0x840
 
 /*-----------------------------------------------------------------------------
 * Main Function
@@ -165,13 +165,17 @@ int main(void)		//TODO: set date and time
 
 
 
-	pingpong.setWorkFunction(work_cb);
-	init();
+	//pingpong.setWorkFunction(work_cb);
+	//init();
 
 
 	while(1)
 	{
 	sleep(1);
+	writepin( LCD_RST, GPMC_A0_GPIO1_16, 1);
+	sleep(1);
+	writepin( LCD_RST,GPMC_A0_GPIO1_16, 0);
+
 	}
 
 
@@ -263,11 +267,11 @@ void logData(_data *toLog)
 	toLogData.append(":ClientID=");
 	toLogData.append(std::to_string(toLog->ClientID));
 	toLogData.append(",nsStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.nsStright));
+	toLogData.append(std::to_string(toLog->data.lightTiming.nsStraight));
 	toLogData.append(",nsTurn=");
 	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
 	toLogData.append(",ewStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.ewStright));
+	toLogData.append(std::to_string(toLog->data.lightTiming.ewStraight));
 	toLogData.append(",ewTurn=");
 	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
 	toLogData.append(",currentState=");
