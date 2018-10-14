@@ -61,11 +61,11 @@ enum trafficLightStates
     DEFAULT_TLS = 0,            // Default state for start up
     NSG,                        // North/South Green
     NSY,                        // North/South Yellow
-    NSYG,                       // North/South Turn Green
+    NSTG,                       // North/South Turn Green
     NSTY,                       // North/South Turn Yellow
     EWG,                        // East/West Green
     EWY,                        // East/West Yellow
-    EWYG,                       // East/West Turn Green
+    EWTG,                       // East/West Turn Green
     EWTY,                       // East/West Turn Yellow
     RED,                        // All Red
     ERROR_1,                    // Error States 1   TODO: Define Error states
@@ -90,10 +90,11 @@ enum trainStationStates
 
 typedef struct
 {
-    uint8_t nsStright;          // North/South Straight Light timing
+    uint8_t nsStraight;         // North/South Straight Light timing
     uint8_t nsTurn;             // North/South Turn Light timing
-    uint8_t ewStright;          // East/West Straight Light timing
+    uint8_t ewStraight;         // East/West Straight Light timing
     uint8_t ewTurn;             // East/West Turn Light timing
+    uint8_t yellow;				// Yellow Light timing
 }trafficLightTiming;
 
 
