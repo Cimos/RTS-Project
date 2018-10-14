@@ -100,7 +100,9 @@ struct traffic_data
 	char sem_name[10];
 };
 
-//WorkerThread pingpong;
+WorkerThread pingpong;
+keyPad kp;
+TRAFFIC_SENSORS _sensor;
 
 /*-----------------------------------------------------------------------------
 * Threads Declarations
@@ -108,8 +110,6 @@ struct traffic_data
 void *th_statemachine(void *Data);
 // TODO - Server read thread
 void *th_sensors(void *Data);
-// TODO - Timer Threads
-
 void *th_fakeserver(void *Data);
 
 /*-----------------------------------------------------------------------------
@@ -124,6 +124,8 @@ void init_traffic_data(traffic_data *data);
 int client(int serverPID,  int serverChID);
 
 void keypad_cb(char keypress);
+void *work_cb(workBuf *work);
+void reset_sensors(void);
 
 /*-----------------------------------------------------------------------------
 * Main Function
@@ -132,82 +134,75 @@ int main(void)
 {
 	printf("TLI-1 - Main started.\n");
 
+	pingpong.setWorkFunction(work_cb);
 
+	// Setup Keypad
  	pthread_attr_t keyPad_attr;
 	struct sched_param keyPad_param;
     pthread_attr_init(&keyPad_attr);
     pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
-    keyPad_param.sched_priority = 5;
+    keyPad_param.sched_priority = 20;	// TODO - Check priority
     pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
     pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setstacksize (&keyPad_attr, 8000);
 
-	keyPad kp;
+    // Start the Keypad Callback
 	kp.registerCallback(keypad_cb);
-	// Note: can do kp.start() which will just give it default attributes and priority
 	kp.start(&keyPad_attr);
 
+	// Setup state machine
+	traffic_data traffic;
+	init_traffic_data(&traffic);
 
+	// Clear any old semaphores with the same name
+	sem_unlink(traffic.sem_name);
 
+	// Create the named Semaphore
+	traffic.sem = *sem_open(traffic.sem_name, SEM_FLAGS, S_IRWXG, 1); // Group access, 1 = unlocked.
 
+#if DEBUG_RUN_SERVER == 1
+	// Setup Server Connection
+	int pid = 0;
+	int chid = 0;
 
-//	// Setup state machine
-//	traffic_data traffic;
-//	init_traffic_data(&traffic);
-//
-//	// Setup Keypad
-//
-//	// Create the named Semaphore
-//	traffic.sem = *sem_open(traffic.sem_name, SEM_FLAGS, S_IRWXG, 1); // Group access, 1 = unlocked.
-//
-//#if DEBUG_RUN_SERVER == 1
-//	// Setup Server Connection
-//	int pid = 0;
-//	int chid = 0;
-//
-//	read_pid_chid_FromFile(&pid, &chid, CONTROLHUB_SERVER);
-//
-//	printf("PID = %d\tCID = %d\n", pid, chid);
-//
-//	if (client(pid, chid))
-//	{
-//		// Handle Error
-//		printf("TLI-1 - Server Connection Error. Main terminated.\n");
-//		return EXIT_FAILURE;
-//	}
-//#else
-//	pthread_t th_fake;
-//#endif // DEBUG_NO_SERVER == 1
-//
-//	// Declare Threads
-//	pthread_t th_traffic_sm;
-////	pthread_t th_sensor;
-//	void *retval;
-//
-//	// Create Threads
-//	pthread_create(&th_traffic_sm, NULL, th_statemachine, &traffic);
-////	pthread_create(&th_sensor, NULL, th_sensors, &traffic);
-//
-//#if DEBUG_RUN_SERVER == 0
-//	pthread_create(&th_fake, NULL, th_fakeserver, &traffic);
-//	pthread_join(th_fake, &retval);
-//#endif // DEBUG_RUN_SERVER == 0
-//
-//	// Join Threads
-//	pthread_join(th_traffic_sm, &retval);
-////	pthread_join(th_sensor, &retval);
-//
-//	// Close the named semaphore
-//	sem_close(&traffic.sem);
-//
-//	// Destroy the named semaphore
-//	sem_unlink(traffic.sem_name);
+	read_pid_chid_FromFile(&pid, &chid, CONTROLHUB_SERVER);
 
-	// End of Main
-	while(1)
+	printf("PID = %d\tCID = %d\n", pid, chid);
+
+	if (client(pid, chid))
 	{
-		sleep(1);
+		// Handle Error
+		printf("TLI-1 - Server Connection Error. Main terminated.\n");
+		return EXIT_FAILURE;
 	}
+#else
+	pthread_t th_fake;
+#endif // DEBUG_NO_SERVER == 1
+
+	// Declare Threads
+	pthread_t th_traffic_sm;
+	pthread_t th_sensor;
+	void *retval;
+
+	// Create Threads
+	pthread_create(&th_traffic_sm, NULL, th_statemachine, &traffic);
+	pthread_create(&th_sensor, NULL, th_sensors, &traffic);
+
+#if DEBUG_RUN_SERVER == 0
+	pthread_create(&th_fake, NULL, th_fakeserver, &traffic);
+	pthread_join(th_fake, &retval);
+#endif // DEBUG_RUN_SERVER == 0
+
+	// Join Threads
+	pthread_join(th_traffic_sm, &retval);
+	pthread_join(th_sensor, &retval);
+
+	// Close the named semaphore
+	sem_close(&traffic.sem);
+
+	// Destroy the named semaphore
+	sem_unlink(traffic.sem_name);
+
 	printf("TLI-1 - Main terminated.\n");
 	return EXIT_SUCCESS;
 }
@@ -239,7 +234,10 @@ void *th_statemachine(void *Data)
 		{
 			// Change state if one of the sensors has been tripped
 			state_transition( data );
+		}
 
+		if (data->prev_state == RED)
+		{
 			// Reset change state variable
 			data->change_state = 0;
 		}
@@ -256,14 +254,54 @@ void *th_sensors(void *Data)
 	// Cast Pointer
 	traffic_data *data = (traffic_data*) Data;
 
+	// Create Timer
+	DelayTimer timer(false, 0, 1, 0, 0);
+
 	// Read Sensors Continuously
 	while(data->keep_running)
 	{
-		// Read Sensor Data
-		// TODO
+		// Read Sensor Data and ignore transitions to the same state
+		// North South Checks
+		if (_sensor.ns_turn && data->current_state != NSTG)
+		{
+			data->sensors.ns_turn = _sensor.ns_turn;
+			data->change_state = true;
+		}
+		else if (_sensor.ns_straight && data->current_state != NSG)
+		{
+			data->sensors.ns_straight = _sensor.ns_straight;
+			data->change_state = true;
+		}
+		else if (_sensor.ns_pedestrian && data->current_state != NSG)
+		{
+			data->sensors.ns_pedestrian = _sensor.ns_pedestrian;
+			data->change_state = true;
+		}
 
+		// East West Checks
+		if (_sensor.ew_turn && data->current_state != EWTG)
+		{
+			data->sensors.ew_turn = _sensor.ew_turn;
+			data->change_state = true;
+		}
+		else if (_sensor.ew_straight && data->current_state != EWG)
+		{
+			data->sensors.ew_straight = _sensor.ew_straight;
+			data->change_state = true;
+		}
+		else if (_sensor.ew_pedestrian && data->current_state != EWG)
+		{
+			data->sensors.ew_pedestrian = _sensor.ew_pedestrian;
+			data->change_state = true;
+		}
+
+		// TODO - handle the train transitions
+
+		// Set update rate
+		// Wait for timer to finish
+		// TODO - replace with shorter timer
+		timer.createTimer(); // 1 second timer
 	}
-
 
 	printf("TLI-1 - Sensors - Thread Terminating\n");
 	return EXIT_SUCCESS;
@@ -277,7 +315,7 @@ void *th_fakeserver(void *Data)
 	traffic_data *data = (traffic_data*) Data;
 
 	// Create Timer
-	DelayTimer timer(false, 0, 10, 0, 0);
+	DelayTimer timer(false, 0, 60, 0, 0);
 
 	// Wait for timer to finish
 	timer.createTimer();
@@ -743,6 +781,10 @@ void state_transition(traffic_data *data)
 		{
 			printf("ERROR - Something really bad has happened with state transitions");
 		}
+
+		// Reset sensors after transitions have occurred
+		reset_sensors();
+
 		break;
 	case ERROR_1:
 	case ERROR_2:
@@ -867,5 +909,80 @@ int client(int serverPID,  int serverChID)
 
 void keypad_cb(char keypress)
 {
-	printf("Key has been pressed\n");
+	//printf("Key %c pressed.\n", keypress);
+	// Start Worker thread
+	pingpong.doWork(&keypress, sizeof(keypress), 0);
+
+	usleep(1); // TODO - replace with proper timer
+}
+
+void *work_cb(workBuf *work)
+{
+	char data = *work->data->c_str();
+
+	printf("\tButton pressed %c\n", data);
+
+	switch ( data )
+	{
+	case '1':
+		// Button 1 Pressed
+		// NS Straight
+		_sensor.ns_straight = true;
+		break;
+	case '2':
+		// Button 2 Pressed
+		// NS Turn
+		_sensor.ns_turn = true;
+		break;
+	case '3':
+		// Button 3 Pressed
+		// NS Pedestrian
+		_sensor.ns_pedestrian = true;
+		break;
+	case '4':
+		// Button 4 Pressed
+		// Do nothing
+		break;
+	case '5':
+		// Button 5 Pressed
+		// EW Straight
+		_sensor.ew_straight = true;
+		break;
+	case '6':
+		// Button 6 Pressed
+		// EW Turn
+		_sensor.ew_turn = true;
+		break;
+	case '7':
+		// Button 5 Pressed
+		// EW Pedestrian
+		_sensor.ew_pedestrian = true;
+		break;
+	case '8':
+	case '9':
+	case 'A':
+	case 'B':
+	case 'C':
+	case 'D':
+	case 'E':
+	case 'F':
+	case 'G':
+		// Do Nothing. Buttons unassigned.
+		break;
+	default:
+		printf("ERROR - Unknown key pressed.\n");
+		break;
+	}
+
+	return NULL;
+}
+
+void reset_sensors(void)
+{
+	_sensor.ns_straight = false;
+	_sensor.ns_turn = false;
+	_sensor.ns_pedestrian = false;
+	_sensor.ew_straight = false;
+	_sensor.ew_turn = false;
+	_sensor.ew_pedestrian = false;
 }
