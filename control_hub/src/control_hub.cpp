@@ -271,11 +271,11 @@ void logData(_data *toLog)
 	toLogData.append(":Sending->ClientID=");
 	toLogData.append(std::to_string(toLog->ClientID));
 	toLogData.append(",nsStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.nsStright));
+	toLogData.append(std::to_string(toLog->data.lightTiming.nsStraight));
 	toLogData.append(",nsTurn=");
 	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
 	toLogData.append(",ewStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.ewStright));
+	toLogData.append(std::to_string(toLog->data.lightTiming.ewStraight));
 	toLogData.append(",ewTurn=");
 	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
 	toLogData.append(",currentState=");
