@@ -57,13 +57,17 @@
 
 
 /* ----------------------------------------------------	*
- *	@getMsgQueId writeIObeagleLeds:						*
+ *	@writeBoneLeds:									*
  *	@breif: 											*
  *	@return:returns true or false for file				*
  * ---------------------------------------------------	*/
-bool writeBoneLeds(volatile uint32_t val = LED0|LED1|LED2|LED3);		// Not sure if this works as it has
-																		// not been tested but was code from a the lecturs
+bool writeBoneLeds(uint32_t pin, bool setTo);
 
-bool writepin(uint32_t pin, uint32_t pinConfig, bool setTo);
+/* ----------------------------------------------------	*
+ *	@writepin_gpio1:									*
+ *	@breif: 											*
+ *	@return:returns true or false for file				*
+ * ---------------------------------------------------	*/
+bool writepin_gpio1(uint32_t pin, uint32_t pinConfig, bool setTo);
 
 #endif /* SRC_GPIO_BONEGPIO_H_ */

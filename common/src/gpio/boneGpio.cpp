@@ -17,7 +17,6 @@
 * Included Files
 *---------------------------------------------------------------------------*/
 
-
 #include "boneGpio.h"
 
 
@@ -56,10 +55,11 @@
  *	@breif:  											*
  *	@return:returns true or false for file				*
  * ---------------------------------------------------	*/
-bool writeBoneLeds(volatile uint32_t val)
+bool writeBoneLeds(uint32_t pin, bool setTo)
 {
 	uintptr_t gpio1_base = 0;
 
+	volatile uint32_t	val = 0;
 	volatile uint32_t	tmp = 0;
 
 	gpio1_base = mmap_device_io(AM335X_GPIO_SIZE, AM335X_GPIO1_BASE);
@@ -81,15 +81,20 @@ bool writeBoneLeds(volatile uint32_t val)
 	DEBUGF("Original value of GPIO_1 output enable register: %#010x\n", val);
 
 	// write value to output enable
-	val &= ~(LED0|LED1|LED2|LED3);
+	if (setTo)
+		val |= pin;
+	else
+		val &= ~pin;
+
 	out32(gpio1_base + GPIO_OE, val);
 
 	// confirm that GPIO_OE is set to output
 	tmp  = in32(gpio1_base + GPIO_OE);
-	DEBUGF("New value of GPIO_1 output enable register: %#010x\n", val);
+	DEBUGF("New value of GPIO_1 output enable register: %#010x\n", tmp);
 
 	if (tmp != val)
 		return false;
+
 
 	// TODO: is this needed?
 	munmap_device_io(gpio1_base, AM335X_GPIO_SIZE);
@@ -102,11 +107,11 @@ bool writeBoneLeds(volatile uint32_t val)
 
 
 /* ----------------------------------------------------	*
- *	@writepin:											*
+ *	@writepin_gpio1:											*
  *	@breif:  											*
  *	@return:returns true or false for file				*
  * ---------------------------------------------------	*/
-bool writepin(uint32_t pin, uint32_t pinConfig, bool setTo)
+bool writepin_gpio1(uint32_t pin, uint32_t pinConfig, bool setTo)
 {
 	volatile uint32_t	tmp = 0;
 	volatile uint32_t val;

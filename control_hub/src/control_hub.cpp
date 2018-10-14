@@ -175,11 +175,13 @@ int main(void)		//TODO: set date and time
 
 	while(1)
 	{
-	sleep(1);
-	writepin( LCD_RST, GPMC_A0_GPIO1_16, 1);
-	sleep(1);
-	writepin( LCD_RST,GPMC_A0_GPIO1_16, 0);
 
+	sleep(1);
+	writeBoneLeds(LED0, 1);
+	//writepin( LCD_RST, GPMC_A0_GPIO1_16, 1);
+	sleep(1);
+	//writepin( LCD_RST,GPMC_A0_GPIO1_16, 0);
+	writeBoneLeds(LED0, 0);
 	}
 
 
