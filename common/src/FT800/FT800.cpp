@@ -24,6 +24,7 @@
 
 #include "../../public/debug.h"
 #include "../i2c/i2c_HAL.h"
+#include "../gpio/boneGpio.h"
 #include "string.h"
 #include "stdio.h"
 
@@ -60,102 +61,83 @@ void set_screen_rotation(UINT32 bit_0);
 // --------------------------------------- INIT SCREEN ---------------------------------------
 void FT800_Init(void)
 {
-  //DPRINT("Initializing FT800_i2c_port");
+	DEBUGF("Initializing FT800_i2c_port");
 
-  //_ft800.reset = GPIO_open("DIP3"); // milled pcb is DIP0.. using no daughter board change to dip3
+	if (setPinIOStatus(gpio1_13,gpio1_13_config,0))
+		printf("Pin Set\n");
 
-  i2c_LCD_port_OPEN();
+	fflush(stdout);
 
-  usleep(1);
-  wake_screen();
+	i2c_LCD_port_OPEN();
 
-//
-//  host_command(ACTIVE); //send host command "ACTIVE" to FT800
-//  host_command(CLKEXT); //send command to "CLKEXT" to FT800
-//  host_command(CLK48M);
-//
-//  usleep(1000);
-//  host_command(SLEEP);
-//  usleep(1000);
-//  host_command(ACTIVE); //send host command "ACTIVE" to FT800
-//  usleep(1000);
-//
-//  reg_id = rd8(REG_ID);
-//
-//
-//  if (reg_id != 0x7C)
-//  {
-//  printf("FT800 could not be initialised! BAD ID\r\n");
-//  return;
-//  }
+	usleep(1);
+	wake_screen();
 
+	wr8(REG_PCLK, ZERO);    // Set PCLK to zero - don't clock the LCD until later
+	wr8(REG_PWM_DUTY, ZERO);    // Turn off backlight
 
+	// Initialize Display
+	wr16(REG_HSIZE, SCREEN_HSIZE_16); // width resolution
+	wr16(REG_VSIZE, SCREEN_VSIZE_16); // height resolution
+	wr16(REG_HCYCLE, SCREEN_HCYCLE_16); // number if horizontal cycles for display
+	wr16(REG_HSYNC0, SCREEN_HSYNC0_16); // hsync falls
+	wr16(REG_HSYNC1, SCREEN_HSYNC1_16); // hsync rise
+	wr16(REG_HOFFSET, SCREEN_HOFFSET_16); // horizontal offset from starting signal
+	wr16(REG_VCYCLE, SCREEN_VCYCLE_16); // number of vertical cycles for display
+	wr16(REG_VSYNC0, SCREEN_VSYNC0_16); // vsync falls
+	wr16(REG_VSYNC1, SCREEN_VSYNC1_16); // vsync rise
+	wr16(REG_VOFFSET, SCREEN_VOFFSET_16); // vertical offset from start signal
+	wr8(REG_SWIZZLE, SCREEN_SWIZZLE_8); // output swizzle
+	wr8(REG_PCLK_POL, SCREEN_PCLK_POL); // clock polarity: 0 - rising edge, 1 - falling edge
 
-  wr8(REG_PCLK, ZERO);    // Set PCLK to zero - don't clock the LCD until later
-  wr8(REG_PWM_DUTY, ZERO);    // Turn off backlight
+	wr8(REG_CSPREAD, 1); // output clock spread enable
+	wr8(REG_DITHER, 1); // output number of bits
 
-  // Initialize Display
-  wr16(REG_HSIZE, SCREEN_HSIZE_16); // width resolution
-  wr16(REG_VSIZE, SCREEN_VSIZE_16); // height resolution
-  wr16(REG_HCYCLE, SCREEN_HCYCLE_16); // number if horizontal cycles for display
-  wr16(REG_HSYNC0, SCREEN_HSYNC0_16); // hsync falls
-  wr16(REG_HSYNC1, SCREEN_HSYNC1_16); // hsync rise
-  wr16(REG_HOFFSET, SCREEN_HOFFSET_16); // horizontal offset from starting signal
-  wr16(REG_VCYCLE, SCREEN_VCYCLE_16); // number of vertical cycles for display
-  wr16(REG_VSYNC0, SCREEN_VSYNC0_16); // vsync falls
-  wr16(REG_VSYNC1, SCREEN_VSYNC1_16); // vsync rise
-  wr16(REG_VOFFSET, SCREEN_VOFFSET_16); // vertical offset from start signal
-  wr8(REG_SWIZZLE, SCREEN_SWIZZLE_8); // output swizzle
-  wr8(REG_PCLK_POL, SCREEN_PCLK_POL); // clock polarity: 0 - rising edge, 1 - falling edge
+	// End of Initialize Display
+	//***************************************
+	//***************************************
 
-  wr8(REG_CSPREAD, 1); // output clock spread enable
-  wr8(REG_DITHER, 1); // output number of bits
+	// Configure Touch and Audio - not used in this example, so disable both
+	wr8(REG_TOUCH_MODE, ZERO);    // Disable touch
+	wr16(REG_TOUCH_RZTHRESH, ZERO); // Eliminate any false touches
 
-  // End of Initialize Display
-  //***************************************
-  //***************************************
+	wr8(REG_VOL_PB, ZERO);    // turn recorded audio volume down
+	wr8(REG_VOL_SOUND, ZERO);   // turn synthesizer volume down
+	wr16(REG_SOUND, 0x6000);    // set synthesizer to mute
 
-  // Configure Touch and Audio - not used in this example, so disable both
-  wr8(REG_TOUCH_MODE, ZERO);    // Disable touch
-  wr16(REG_TOUCH_RZTHRESH, ZERO); // Eliminate any false touches
+	// End of Configure Touch and Audio
+	//***************************************
+	//***************************************
 
-  wr8(REG_VOL_PB, ZERO);    // turn recorded audio volume down
-  wr8(REG_VOL_SOUND, ZERO);   // turn synthesizer volume down
-  wr16(REG_SOUND, 0x6000);    // set synthesizer to mute
+	// Write Initial Display List & Enable Display
 
-  // End of Configure Touch and Audio
-  //***************************************
-  //***************************************
+	// write first display list
+	wr32(RAM_DL+0,CLEAR_COLOR_RGB(0,0,0));
+	wr32(RAM_DL+4,CLEAR(1,1,1));
+	wr32(RAM_DL+8,DISPLAY());
 
-  // Write Initial Display List & Enable Display
+	wr8(REG_DLSWAP,DLSWAP_FRAME);//display list swap
 
-  // write first display list
-  wr32(RAM_DL+0,CLEAR_COLOR_RGB(0,0,0));
-  wr32(RAM_DL+4,CLEAR(1,1,1));
-  wr32(RAM_DL+8,DISPLAY());
+	//wr8(REG_GPIO_DIR,0x80 | rd8(REG_GPIO_DIR));
+	//wr8(REG_GPIO,0x080 | rd8(REG_GPIO));//enable display bit
+	//wr8(REG_GPIO,0x80);
+	wr8(REG_GPIO_DIR, 0xfc);
+	wr8(REG_GPIO, 0xff);
 
-  wr8(REG_DLSWAP,DLSWAP_FRAME);//display list swap
+	wr8(REG_PCLK,5); // clock prescaler (0: disable, >0: 48MHz/pclock)
 
-  //wr8(REG_GPIO_DIR,0x80 | rd8(REG_GPIO_DIR));
-  //wr8(REG_GPIO,0x080 | rd8(REG_GPIO));//enable display bit
-  //wr8(REG_GPIO,0x80);
-  wr8(REG_GPIO_DIR, 0xfc);
-  wr8(REG_GPIO, 0xff);
+	set_screen_rotation(STARTING_SCREEN_ROTATION);
 
-  wr8(REG_PCLK,5); // clock prescaler (0: disable, >0: 48MHz/pclock)
+	usleep(50);
 
-  set_screen_rotation(STARTING_SCREEN_ROTATION);
+	start_screen(CLEAR_COLOR_RGB(0,0,0));
+	make_string(240,136,31,OPT_CENTER,COLOR_RGB(255,255,255), "Innovative Solutions");
+	end_screen();
 
-  usleep(50);
+	wr8(REG_PWM_DUTY, 255);
+	usleep(1000);
 
-  start_screen(CLEAR_COLOR_RGB(0,0,0));
-  make_string(240,136,31,OPT_CENTER,COLOR_RGB(255,255,255), "Innovative Solutions");
-  end_screen();
-
-  wr8(REG_PWM_DUTY, 255);
-  usleep(1000);
-
-  return;
+	return;
 }
 
 
@@ -164,28 +146,27 @@ void FT800_Init(void)
 
 int wake_screen()
 {
+	writepin_gpio1(gpio1_13,1);
+	usleep(2000);    // 20 millisecond delay
+	writepin_gpio1(gpio1_13,0);
+	usleep(2000);    // 20 millisecond delay
+	writepin_gpio1(gpio1_13,1);
+	usleep(2000);    // 20 millisecond delay
 
-  //GPIO_set_active(_ft800.reset);
-  usleep(20);    // 20 millisecond delay
-  //GPIO_set_inactive(_ft800.reset);
-  usleep(20);    // 20 millisecond delay
-  //GPIO_set_active(_ft800.reset);
-  usleep(20);    // 20 millisecond delay
 
+	host_command(ACTIVE); //send host command "ACTIVE" to FT800
+	host_command(CLKEXT); //send command to "CLKEXT" to FT800
+  	host_command(CLK48M);
 
-  host_command(ACTIVE); //send host command "ACTIVE" to FT800
-  host_command(CLKEXT); //send command to "CLKEXT" to FT800
-  host_command(CLK48M);
+  	usleep(2000);
+  	reg_id = rd8(REG_ID);
 
-  usleep(20);
-  reg_id = rd8(REG_ID);
-
-  if (reg_id != 0x7C)
-  {
-    DEBUGF("FT800 could not be initialised! BAD ID\r\n");
-    return -1;
-  }
-  return 0;
+  	if (reg_id != 0x7C)
+  	{
+  		DEBUGF("FT800 could not be initialised! BAD ID\r\n");
+  		return -1;
+  	}
+  	return 0;
 }
 
 void power_down_screen()

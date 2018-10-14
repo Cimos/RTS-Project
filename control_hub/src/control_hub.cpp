@@ -155,11 +155,8 @@ void *work_cb(workBuf *work);
 
 
 WorkerThread pingpong;
-#define LCD_RST (1<<16)  // LCD_RST is connected to rst on the click breakout board		pin 16
-#define GPMC_A0_GPIO1_16 0x840
 
-#define gpio1_6  (1<<6)
-#define gpio1_config 0x818
+
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
@@ -170,22 +167,27 @@ int main(void)		//TODO: set date and time
 	//init();
 
 
+	FT800_Init();
+
 	while(1)
 	{
 
-	sleep(1);
-	//writeBoneLeds(LED0, 1);
-	writepin(gpio1_6,gpio1_config,1);
-	sleep(1);
-	writepin(gpio1_6,gpio1_config,0);
-	//writeBoneLeds(LED0, 0);
+	sleep(5);
+	writepin_gpio1(gpio1_13,1);
+	printf("pin set high\n");
+	fflush(stdout);
+
+	sleep(5);
+	writepin_gpio1(gpio1_13,0);
+	printf("pin set low\n");
+	fflush(stdout);
+
 	}
 
 
 
 	//char input = printMenu(1);
 	//std::cout << "Entered: " << input << std::endl;
-//	FT800_Init();
 
 
 //	sem_t sem,*ptr_sema = &sem;
@@ -231,6 +233,8 @@ void *work_cb(workBuf *work)
 
 void init(void)
 {
+	ThreadCtl(_NTO_TCTL_IO_PRIV , (void*)0);
+
 	std::string tmp(STARTUP_MSG);
 	write_string_ToFile(&tmp, CHLOG, "a+");
 
