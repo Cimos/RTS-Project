@@ -19,6 +19,9 @@
 #include "../FT800/FT800.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
+
+extern int errno;
 
 #define ACTIVE  0x00
 #define STANDBY 0x41
@@ -286,7 +289,13 @@ int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, 
 	handle->bus_speed = i2cFrequency;
 
 	if ((handle->fd = open("/dev/i2c1", O_RDWR)) < 0)
-	{ return -1; }
+	{
+		error = errno;
+	    printf( "The error generated was %d\n", error );
+	    printf( "That means: %s\n", strerror( error ) );
+	    fflush(stdout);
+		return -1;
+	}
 
 	error = devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(handle->bus_speed), sizeof(handle->bus_speed), NULL);
 	//fprintf(stderr, "Error setting the I2C bus speed: %s\n",strerror ( error ));

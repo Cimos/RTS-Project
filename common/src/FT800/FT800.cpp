@@ -63,12 +63,12 @@ void FT800_Init(void)
 {
 	DEBUGF("Initializing FT800_i2c_port");
 
-	if (setPinIOStatus(gpio1_13,gpio1_13_config,0))
-		printf("Pin Set\n");
-
-	fflush(stdout);
 
 	i2c_LCD_port_OPEN();
+
+
+	if (setPinIOStatus(gpio1_13,gpio1_13_config,0))
+			DEBUGF("Pin Set\n");
 
 	usleep(1);
 	wake_screen();
@@ -131,7 +131,7 @@ void FT800_Init(void)
 	usleep(50);
 
 	start_screen(CLEAR_COLOR_RGB(0,0,0));
-	make_string(240,136,31,OPT_CENTER,COLOR_RGB(255,255,255), "Innovative Solutions");
+	make_string(240,136,31,OPT_CENTER,COLOR_RGB(255,255,255), "RTS - PROJECT");
 	end_screen();
 
 	wr8(REG_PWM_DUTY, 255);

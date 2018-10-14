@@ -108,8 +108,6 @@ static struct
 	// ******** thread handlers
 	_thread serverThread;
 
-
-
 	// ********* IntrSect's
 	controler2Intersection intrSect_1;
 	controler2Intersection intrSect_2;
@@ -117,20 +115,33 @@ static struct
 	// ********* Keypad
 	struct
 	{
-		//WorkerThread wk;// because keyPad thread is time dependent, a working thread is passed
-						// the key press which can tak all the time it needs to do the work.
-		void* (*func)(workBuf *work);
 		keyPad thread;
 		pthread_attr_t keyPad_attr;
 		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
 		struct sched_param keyPad_param;
 		char UserInput = 0;
+		WorkerThread kpWorker;
+
 	}kp;
 
 
 	// ******** Current Time
-	time_t time;
-	struct tm *currentTime;
+	struct
+	{
+		time_t time;
+		struct tm *currentTime;
+		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+
+	}tm;
+
+
+	struct
+	{
+		WorkerThread server;
+
+		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+
+	}server;
 
 	// Create Worker Thread
 }self;
@@ -140,7 +151,9 @@ static struct
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
 *---------------------------------------------------------------------------*/
-void *server(void *chid);
+void *serverReceiver(void *chid);
+void *serverSender(workBuf *work);
+void *kpWork(workBuf *work);
 void threadInit(_thread *th);
 void serverInit(void);
 void init(void);
@@ -148,13 +161,8 @@ bool keypadInit(int prio);
 void keypad_cb(char keyPress);
 void logData(_data *toLog);
 void logData(_reply *toLog);
+void logKeyPress(char key);
 int printMenu(int mode);
-
-
-void *work_cb(workBuf *work);
-
-
-WorkerThread pingpong;
 
 
 /*-----------------------------------------------------------------------------
@@ -162,74 +170,117 @@ WorkerThread pingpong;
 *---------------------------------------------------------------------------*/
 int main(void)		//TODO: set date and time
 {
-
-	//pingpong.setWorkFunction(work_cb);
-	//init();
+	init();
 
 
-	FT800_Init();
+
+
+
+
+//	char input = printMenu(1);
+
+
+// SCREEN:
+	Screen_animations(1);
 
 	while(1)
 	{
-
-	sleep(5);
-	writepin_gpio1(gpio1_13,1);
-	printf("pin set high\n");
-	fflush(stdout);
-
-	sleep(5);
-	writepin_gpio1(gpio1_13,0);
-	printf("pin set low\n");
-	fflush(stdout);
-
+		sleep(2);
 	}
-
-
-
-	//char input = printMenu(1);
-	//std::cout << "Entered: " << input << std::endl;
-
-
-//	sem_t sem,*ptr_sema = &sem;
-//
-//	int sem_init( sem_t * sem,
-//	              int pshared,
-//	              unsigned value );
-
-//	self.time = time(NULL);
-//	self.currentTime = localtime(&self.time);
-//
-//	_data tmp;
-//
-//	tmp.ClientID = 1;
-//	tmp.data.currentState = trafficLightStates::EWYG;
-//	tmp.data.lightTiming.ewStright = 100;
-//	tmp.data.lightTiming.nsStright = 200;
-//	tmp.data.lightTiming.ewTurn = 101;
-//	tmp.data.lightTiming.nsTurn = 202;
-//	logData(&tmp);
-
 
 	return EXIT_SUCCESS;
 }
 
 
 
-
 /*-----------------------------------------------------------------------------
 * Local Function Definitions
 *---------------------------------------------------------------------------*/
-
-void *work_cb(workBuf *work)
+/* ----------------------------------------------------	*
+ *	@kpWork Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void *kpWork(workBuf *work)
 {
-	usleep(1000);
+	if (work == NULL)
+		if (work->data == NULL)
+			return NULL;
 
-	printf("Buf = %s\n",work->data->c_str());
-	printf("Size = %d\n",work->size);
-	printf("Mode = %d\n",work->mode);
+	char tmp = work->data->c_str()[0];
+
+	logKeyPress(tmp);
+
+	//self.server.server.doWork(buf, size, mode)
+	switch(tmp)
+	{
+	case '1':
+		//RequestBoomGateChange(DOWN);
+		break;
+	case '2':
+		//RequestBoomGateChange(UP);
+		break;
+	case '3':
+		//UpdateNetworkTime();
+		break;
+	case '4':
+		//RequestTrafficLight1Change(NSG);
+		break;
+	case '5':
+		//RequestTrafficLight1Change(EWG);
+		break;
+	case '6':
+		//RequestTrafficLight2Change(NSG);
+		break;
+	case '7':
+		//RequestTrafficLight2Change(EWG);
+		break;
+	case '8':
+		//RequestTrafficLight2Change(NSTG);
+		break;
+	case '9':
+		//RequestTrafficLight2Change(EWTG);
+		break;
+	case 'A':
+		//RequestTrafficLight1Change(NSTG);
+		break;
+	case 'B':
+		//RequestTrafficLight1Change(EWTG);
+		break;
+	case 'C':
+		//RequestTrafficLight1DecreaseStateChange();
+		break;
+	case 'D':
+		//RequestTrafficLight1IncreaseStateChange();
+		break;
+	case 'E':
+		//RequestTrafficLight2DecreaseStateChange();
+		break;
+	case 'F':
+		//RequestTrafficLight2IncreaseStateChange();
+		break;
+	case 'G':
+		break;
+	default:
+		//Error();
+		;
+	}
+
 
 	return NULL;
 }
+
+
+/* ----------------------------------------------------	*
+ *	@keypad_cb Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void keypad_cb(char keyPress)
+{
+	self.kp.kpWorker.doWork(&keyPress, 1, 0);
+}
+
 
 void init(void)
 {
@@ -238,70 +289,12 @@ void init(void)
 	std::string tmp(STARTUP_MSG);
 	write_string_ToFile(&tmp, CHLOG, "a+");
 
-	//serverInit();
+	serverInit();
 	keypadInit(5);
+	FT800_Init();
+
 }
 
-/* ----------------------------------------------------	*
- *	@server Implementation:								*
- *	@brief:												*
- *	@return:											*
- * ---------------------------------------------------	*/
-void logData(_data *toLog)
-{
-	std::string toLogData;
-	self.time = time(NULL);
-	self.currentTime = localtime(&self.time);
-	std::string time(asctime(self.currentTime));
-
-	// creating cvs formate with time and date stamp
-	toLogData.append(time.substr(0,time.length()-1));
-	toLogData.append(":Sending->ClientID=");
-	toLogData.append(std::to_string(toLog->ClientID));
-	toLogData.append(",nsStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.nsStraight));
-	toLogData.append(",nsTurn=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
-	toLogData.append(",ewStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.ewStraight));
-	toLogData.append(",ewTurn=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
-	toLogData.append(",currentState=");
-	toLogData.append(std::to_string(toLog->data.currentState));
-	toLogData.append(";\n");
-	write_string_ToFile(&toLogData, CHLOG, "a+");
-}
-
-
-/* ----------------------------------------------------	*
- *	@server Implementation:								*
- *	@brief:												*
- *	@return:											*
- * ---------------------------------------------------	*/
-void logData(_reply *toLog)
-{
-	std::string toLogData;
-	self.time = time(NULL);
-	self.currentTime = localtime(&self.time);
-	std::string time(asctime(self.currentTime));
-
-	// creating cvs formate with time and date stamp
-	toLogData.append(time.substr(0,time.length()-1));
-	toLogData.append(":Reply->ClientID=");
-//	toLogData.append(std::to_string(toLog->ClientID));
-//	toLogData.append(",nsStright=");
-//	toLogData.append(std::to_string(toLog->data.lightTiming.nsStright));
-//	toLogData.append(",nsTurn=");
-//	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
-//	toLogData.append(",ewStright=");
-//	toLogData.append(std::to_string(toLog->data.lightTiming.ewStright));
-//	toLogData.append(",ewTurn=");
-//	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
-//	toLogData.append(",currentState=");
-//	toLogData.append(std::to_string(toLog->data.currentState));
-	toLogData.append(";\n");
-	write_string_ToFile(&toLogData, CHLOG, "a+");
-}
 
 /* ----------------------------------------------------	*
  *	@init_keypad Implementation:						*
@@ -319,9 +312,11 @@ bool keypadInit(int prio)
     pthread_attr_setstacksize (&self.kp.keyPad_attr, 8000);
 
 	self.kp.thread.registerCallback(keypad_cb);
-	// Note: can do kp.start() which will just give it default attributes and priority
 	self.kp.thread.start(&self.kp.keyPad_attr);
+	self.kp.kpWorker.setWorkFunction(kpWork);
 }
+
+
 
 /* ----------------------------------------------------	*
  *	@serverInit Implementation:							*
@@ -330,6 +325,7 @@ bool keypadInit(int prio)
  * ---------------------------------------------------	*/
 void serverInit(void)
 {
+	Lock(self.server.Mtx);
 	DEBUGF("serverInit()->Initializing Server:\n");
 	threadInit(&self.serverThread);
 
@@ -339,6 +335,7 @@ void serverInit(void)
 	if (self.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
 	{
 		DEBUGF("serverInit()->Failed to create communication channel on server\n");
+		Unlock(self.server.Mtx);
 		return;
 	}
 
@@ -350,9 +347,13 @@ void serverInit(void)
 
 	DEBUGF("serverInit()->Server listening for clients:\n");
 
-	pthread_create(&self.serverThread.thread, NULL, server, (void *)&self);
+	pthread_create(&self.serverThread.thread, NULL, serverReceiver, (void *)&self);
 
 	DEBUGF("serverInit()->Finished server Init:\n");
+
+	self.server.server.setWorkFunction(serverSender);
+
+	Unlock(self.server.Mtx);
 	return;
 }
 
@@ -375,15 +376,15 @@ void threadInit(_thread *th)
 
 //TODO: Fix this for appData
 /* ----------------------------------------------------	*
- *	@server Implementation:								*
+ *	@serverReceiver Implementation:						*
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-void *server(void *appData)
+void *serverReceiver(void *appData)
 {
 //	self *tmp = (self *)appData;
 	int rcvid=0, msgnum=0;  	// no message received yet
-	int Stay_alive=0, living=1;	// stay alive and living for contorling the server status
+	int Stay_alive=0, living=1;	// stay alive and living for controlling the server status
     int server_coid = 0;
     int read = 0, chid = self.chid;
     _data msg;			// received msg
@@ -453,8 +454,6 @@ void *server(void *appData)
                 continue;	// go back to top of while loop
             }
 
-            // if (msg.data == 1) { mode = 1; }
-            // else { mode = 0; }
             DEBUGF("Server->logging received message");
         	logData(&msg);
 
@@ -463,13 +462,13 @@ void *server(void *appData)
         	switch(msg.ClientID)
         	{
         	case clients::TRAFFIC_L1:
-        		//updateTrafficLight1();
+        		//updateTrafficLight1Status();	// ie screen or gui
         		break;
         	case clients::TRAFFIC_L2:
-        		//updateTrafficLight2();
+        		//updateTrafficLight2Status();	// ie screen or gui
         		break;
         	case clients::TRAIN_I1:
-        		//updateTrainIntersection1();
+        		//updateTrainIntersection1Status();	// ie screen or gui
         		break;
         	default:
         		break;
@@ -487,36 +486,102 @@ void *server(void *appData)
         {
         	DEBUGF("Server->ERROR->received something, but could not handle it correctly\n");
         }
-
     }
 	return NULL;
 }
 
-//MsgSend()
 
 /* ----------------------------------------------------	*
- *	@keypad_cb Implementation:							*
+ *	@serverReceiver Implementation:						*
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-void keypad_cb(char keyPress)
+void *serverSender(workBuf *work)
 {
-	// Because this callback has no abstraction between it and looking for the next keypress if you were to hold this
-	// function up too much you will miss the next key press.
-	// This is why we used an additional working thread which is passed the work and it can be a lower
-	// prio thread that can take all the time it wants.
+	Lock(self.server.Mtx);
 
-//	Lock(self.kp.Mtx);
-//	self.kp.wk.doWork(&keyPress, 1, NULL);
-//	//self.kp.UserInput = keyPress;
-//	Unlock(self.kp.Mtx);
-// 	DEBUGF("Key Pressed: %c", keyPress);
-	pingpong.doWork(&keyPress, sizeof(keyPress), 0);
+	Unlock(self.server.Mtx);
 
+	return NULL;
 }
 
 
+/* ----------------------------------------------------	*
+ *	@logData Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void logData(_data *toLog)
+{
+	std::string toLogData;
+	Lock(self.tm.Mtx)
+	self.tm.time = time(NULL);
+	self.tm.currentTime = localtime(&self.tm.time);
+	std::string time(asctime(self.tm.currentTime));
 
+	// creating cvs formate with time and date stamp
+	toLogData.append(time.substr(0,time.length()-1));
+	toLogData.append(":Sending->ClientID=");
+	toLogData.append(std::to_string(toLog->ClientID));
+	toLogData.append(",nsStright=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.nsStraight));
+	toLogData.append(",nsTurn=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
+	toLogData.append(",ewStright=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.ewStraight));
+	toLogData.append(",ewTurn=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
+	toLogData.append(",currentState=");
+	toLogData.append(std::to_string(toLog->data.currentState));
+	toLogData.append(";\n");
+	write_string_ToFile(&toLogData, CHLOG, "a+");
+	Unlock(self.tm.Mtx)
+}
+
+
+/* ----------------------------------------------------	*
+ *	@server Implementation:								*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void logData(_reply *toLog)
+{
+	std::string toLogData;
+	Lock(self.tm.Mtx)
+	self.tm.time = time(NULL);
+	self.tm.currentTime = localtime(&self.tm.time);
+	std::string time(asctime(self.tm.currentTime));
+	Unlock(self.tm.Mtx)
+
+	// creating cvs formate with time and date stamp
+	toLogData.append(time.substr(0,time.length()-1));
+	toLogData.append(":Reply->ClientID=");
+	toLogData.append(";\n");
+	write_string_ToFile(&toLogData, CHLOG, "a+");
+	Unlock(self.tm.Mtx)
+}
+
+
+/* ----------------------------------------------------	*
+ *	@logKeyPress Implementation:						*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void logKeyPress(char key)
+{
+	std::string toLogData;
+	Lock(self.tm.Mtx)
+	self.tm.time = time(NULL);
+	self.tm.currentTime = localtime(&self.tm.time);
+	std::string time(asctime(self.tm.currentTime));
+
+	// creating cvs formate with time and date stamp
+	toLogData.append(time.substr(0,time.length()-1));
+	toLogData.append(":Reply->ClientID=");
+	toLogData.append(";\n");
+	write_string_ToFile(&toLogData, CHLOG, "a+");
+	Unlock(self.tm.Mtx)
+}
 
 
 
@@ -533,6 +598,10 @@ int printMenu(int mode)
 	return input;
 
 }
+
+
+
+
 
 
 

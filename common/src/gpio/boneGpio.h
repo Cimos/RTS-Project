@@ -45,7 +45,7 @@
 #define gpio1_12 (1<<12)		// P8_12
 #define gpio1_12_config 0x830
 
-#define gpio1_13 (1<<13)		// P8_13
+#define gpio1_13 (1<<13)		// P8_11
 #define gpio1_13_config 0x834
 
 // P9
