@@ -204,6 +204,10 @@ int main(void)
 //	sem_unlink(traffic.sem_name);
 
 	// End of Main
+	while(1)
+	{
+		sleep(1);
+	}
 	printf("TLI-1 - Main terminated.\n");
 	return EXIT_SUCCESS;
 }

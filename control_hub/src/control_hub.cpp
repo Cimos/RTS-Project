@@ -300,17 +300,17 @@ void logData(_reply *toLog)
 	// creating cvs formate with time and date stamp
 	toLogData.append(time.substr(0,time.length()-1));
 	toLogData.append(":Reply->ClientID=");
-	toLogData.append(std::to_string(toLog->ClientID));
-	toLogData.append(",nsStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.nsStright));
-	toLogData.append(",nsTurn=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
-	toLogData.append(",ewStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.ewStright));
-	toLogData.append(",ewTurn=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
-	toLogData.append(",currentState=");
-	toLogData.append(std::to_string(toLog->data.currentState));
+//	toLogData.append(std::to_string(toLog->ClientID));
+//	toLogData.append(",nsStright=");
+//	toLogData.append(std::to_string(toLog->data.lightTiming.nsStright));
+//	toLogData.append(",nsTurn=");
+//	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
+//	toLogData.append(",ewStright=");
+//	toLogData.append(std::to_string(toLog->data.lightTiming.ewStright));
+//	toLogData.append(",ewTurn=");
+//	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
+//	toLogData.append(",currentState=");
+//	toLogData.append(std::to_string(toLog->data.currentState));
 	toLogData.append(";\n");
 	write_string_ToFile(&toLogData, CHLOG, "a+");
 }
