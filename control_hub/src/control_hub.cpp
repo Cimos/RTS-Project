@@ -147,7 +147,9 @@ void init(void);
 bool keypadInit(int prio);
 void keypad_cb(char keyPress);
 void logData(_data *toLog);
+void logData(_reply *toLog);
 int printMenu(int mode);
+
 
 void *work_cb(workBuf *work);
 
@@ -156,6 +158,8 @@ WorkerThread pingpong;
 #define LCD_RST (1<<16)  // LCD_RST is connected to rst on the click breakout board		pin 16
 #define GPMC_A0_GPIO1_16 0x840
 
+#define gpio1_6  (1<<6)
+#define gpio1_config 0x818
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
@@ -264,7 +268,7 @@ void logData(_data *toLog)
 
 	// creating cvs formate with time and date stamp
 	toLogData.append(time.substr(0,time.length()-1));
-	toLogData.append(":ClientID=");
+	toLogData.append(":Sending->ClientID=");
 	toLogData.append(std::to_string(toLog->ClientID));
 	toLogData.append(",nsStright=");
 	toLogData.append(std::to_string(toLog->data.lightTiming.nsStright));
@@ -280,6 +284,36 @@ void logData(_data *toLog)
 	write_string_ToFile(&toLogData, CHLOG, "a+");
 }
 
+
+/* ----------------------------------------------------	*
+ *	@server Implementation:								*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void logData(_reply *toLog)
+{
+	std::string toLogData;
+	self.time = time(NULL);
+	self.currentTime = localtime(&self.time);
+	std::string time(asctime(self.currentTime));
+
+	// creating cvs formate with time and date stamp
+	toLogData.append(time.substr(0,time.length()-1));
+	toLogData.append(":Reply->ClientID=");
+	toLogData.append(std::to_string(toLog->ClientID));
+	toLogData.append(",nsStright=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.nsStright));
+	toLogData.append(",nsTurn=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
+	toLogData.append(",ewStright=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.ewStright));
+	toLogData.append(",ewTurn=");
+	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
+	toLogData.append(",currentState=");
+	toLogData.append(std::to_string(toLog->data.currentState));
+	toLogData.append(";\n");
+	write_string_ToFile(&toLogData, CHLOG, "a+");
+}
 
 /* ----------------------------------------------------	*
  *	@init_keypad Implementation:						*
