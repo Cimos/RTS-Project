@@ -104,12 +104,22 @@ WorkerThread keyPadBuffer;
 my_data controlHubMsg;
 my_data *pmsg;
 bool LED_retval = false;
+WorkerThread serverWorker;
+char serverRead = '0';
+
+
+//timer setup
+DelayTimer boomGateTimer(true, 0, 3, 0, 3);
+DelayTimer inboundSensorFaultTimer(true, 0, 2, 0, 2);
+DelayTimer oneMilSecTimer(true, 1, 1000000,1,1000000);
+DelayTimer flashLEDTimer(true, 1, 4500000000, 1, 4500000000);
 
 
 /*-----------------------------------------------------------------------------
 * Threads Declarations
 *---------------------------------------------------------------------------*/
 void *trainStateMachine_ex(void *data);
+void *server_ex(void *data);
 
 
 /*-----------------------------------------------------------------------------
@@ -119,15 +129,12 @@ void *trainStateMachine_ex(void *data);
 void getSensorInput(char input);
 void trainStateMachine();
 void keypad_cb(char keypress);
-DelayTimer boomGateTimer(true, 0, 3, 0, 3);	//boomgate error delay timer
-DelayTimer inboundSensorFaultTimer(true, 0, 2, 0, 2); //inbound train sensor fault timer
-DelayTimer oneMilSecTimer(true, 1, 1000000,1,1000000);
-DelayTimer flashLEDTimer(true, 1, 4500000000, 1, 4500000000);
 void *work_cb(workBuf *work);
 void keypad_cb(char keypress);
 int server();
 bool writeBoneLeds(uint32_t pin, bool setTo);
 void flashLED(int LED_num);
+void *server_cb(workBuf *work);
 
 
 
@@ -139,6 +146,7 @@ int main() {
 	printf("Welcome: Road railway crossing state machine\n");
 
 	keyPadBuffer.setWorkFunction(work_cb);
+	serverWorker.setWorkFunction(server_cb);	//TODO
 
 
 	//Thread setup
@@ -161,13 +169,19 @@ int main() {
 	void *SMThreadRetval;
 	pthread_create(&SMThread, NULL, trainStateMachine_ex, NULL);
 
-	//server code
-	int ret = 0;
-	ret = server();
+	//setup server thread
+	pthread_t serverThread;
+	void *serverThreadRetval;
+	pthread_create(&serverThread, NULL, server_ex, NULL);
 
+	//server code
+	//int ret = 0;
+	//ret = server();
 
 	//close threads
 	pthread_join(SMThread, &SMThreadRetval);
+	pthread_join(serverThread, &serverThreadRetval);
+
 
 	printf("\nMain Terminating...\n");
 	return EXIT_SUCCESS;
@@ -188,6 +202,13 @@ void *trainStateMachine_ex(void *data){
 	return 0;
 }
 
+void *server_ex(void *data){
+	cout << "starting server thread" << endl;
+	int ret = 0;
+	ret = server();
+	return 0;
+}
+
 
 /*-----------------------------------------------------------------------------
 * Local Function Definitions
@@ -205,6 +226,13 @@ void *work_cb(workBuf *work)
 	return NULL;
 }
 
+void *server_cb(workBuf *work)		//TODO - Do I need this for recieving? or only sending?
+{
+	serverRead = *work->data->c_str();
+	controlHubMsg.data;				//get data
+	return NULL;
+}
+
 //get keypress
 void keypad_cb(char keypress){
  	//cout << keypress << endl;
@@ -212,31 +240,7 @@ void keypad_cb(char keypress){
  	oneMilSecTimer.createTimer();
 }
 
-/*
-int printCurrentState(int currentState){
-
-	printf("current state is: %d ", currentState);
-	if (currentState == 0){
-		printf("init state\n");
-	}
-	else if (currentState == 1){
-		printf("Boomgate UP\n");
-	}
-	else if (currentState == 2){
-		printf("Boom Alarm\n");
-	}
-	else if (currentState == 3){
-		printf("Boomgate DOWN\n");
-	}
-	else{
-		printf("Error: current state fault!\n");
-	}
-
-	return currentState;
-}
-*/
-
-
+//sensor input
 void getSensorInput(char input){
 	//sensorInput = getchar();			//if using keyboard
 	sensorInput = input;				//if using keyPad
@@ -287,7 +291,7 @@ void getSensorInput(char input){
 	//while ((sensorInput = getchar() != '\n') && (sensorInput != EOF));
 }
 
-
+//train state machine function
 void trainStateMachine(){
 
 	char lastSensorInput = lastSensorInputReset;
@@ -412,6 +416,7 @@ void trainStateMachine(){
 	}
 }
 
+//flash LED fucntion
 void flashLED(int LED_num)
 {
 	int led_num = LED_num;
