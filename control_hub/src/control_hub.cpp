@@ -166,9 +166,6 @@ WorkerThread pingpong;
 int main(void)		//TODO: set date and time
 {
 
-
-
-
 	//pingpong.setWorkFunction(work_cb);
 	//init();
 
@@ -177,19 +174,12 @@ int main(void)		//TODO: set date and time
 	{
 
 	sleep(1);
-	writeBoneLeds(LED0, 1);
-	//writepin( LCD_RST, GPMC_A0_GPIO1_16, 1);
+	//writeBoneLeds(LED0, 1);
+	writepin(gpio1_6,gpio1_config,1);
 	sleep(1);
-	//writepin( LCD_RST,GPMC_A0_GPIO1_16, 0);
-	writeBoneLeds(LED0, 0);
+	writepin(gpio1_6,gpio1_config,0);
+	//writeBoneLeds(LED0, 0);
 	}
-
-
-
-
-
-
-
 
 
 
@@ -216,14 +206,6 @@ int main(void)		//TODO: set date and time
 //	tmp.data.lightTiming.ewTurn = 101;
 //	tmp.data.lightTiming.nsTurn = 202;
 //	logData(&tmp);
-//
-//
-//
-//
-//
-//
-//
-//
 
 
 	return EXIT_SUCCESS;

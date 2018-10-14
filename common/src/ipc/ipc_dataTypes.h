@@ -38,13 +38,9 @@
 *---------------------------------------------------------------------------*/
 
 #define MSG_SIZE 10
+
 #define CONTROLHUB_SERVER "ControlServer.info"
-//#define TRAFFIC_L1	0x10
-//#define TRAFFIC_L2	0x20
-//#define TRAIN_I1	0x30
-//#define CONTROL_H1	0x40
-
-
+#define TRAIN_SERVER "TrainServer.info"
 
 
 enum clients
@@ -55,6 +51,7 @@ enum clients
 	TRAIN_I1,
 	CONTROL_H1
 };
+
 
 enum trafficLightStates
 {
