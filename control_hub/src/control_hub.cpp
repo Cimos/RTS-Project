@@ -205,17 +205,16 @@ int main(void)		//TODO: set date and time
 	int CHID = 0;
 
 
-	std::string tt(CONTROLHUB);
-	tt.append(CONTROLHUB_SERVER);
-	read_pid_chid_FromFile(&PID, &CHID, tt.c_str());
-
-	std::cout << "PID=" << PID << std::endl;
-	std::cout << "CHID=" << CHID << std::endl;
-
+//	std::string tt(CONTROLHUB);
+//	tt.append(CONTROLHUB_SERVER);
+//	read_pid_chid_FromFile(&PID, &CHID, tt.c_str());
+//
+//	std::cout << "PID=" << PID << std::endl;
+//	std::cout << "CHID=" << CHID << std::endl;
+//
 
 	init();
 
-	sleep(5);
 
 
 //	char input = printMenu(1);
@@ -226,7 +225,7 @@ int main(void)		//TODO: set date and time
 
 	while(1)
 	{
-
+		sleep(1);
 	}
 
 
@@ -529,6 +528,7 @@ void *serverReceiver(void *appData)
         	{
         	case clients::TRAFFIC_L1:
         		//updateTrafficLight1Status();	// ie screen or gui
+
         		break;
         	case clients::TRAFFIC_L2:
         		//updateTrafficLight2Status();	// ie screen or gui
@@ -564,9 +564,15 @@ void *serverReceiver(void *appData)
  * ---------------------------------------------------	*/
 void *serverSender(workBuf *work)
 {
-	Lock(self.server.Mtx);
-    rcvid = MsgSend(chid, &msg, sizeof(msg), NULL);
+	_data msg;
+	_reply reply;
+	long rcvid = 0;
 
+
+	Lock(self.server.Mtx);
+
+
+	rcvid = MsgSend(self.server.chid, &msg, sizeof(msg), &reply, sizeof(reply));
 
 	Unlock(self.server.Mtx);
 

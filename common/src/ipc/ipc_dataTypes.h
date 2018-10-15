@@ -39,12 +39,12 @@
 
 #define MSG_SIZE 10
 
-#define CONTROLHUB "/net/RMIT_Cimos/tmp/"
-#define TRAINSTATION "/net/BBB_CimosDirect/tmp/"
+#define CONTROLHUB "/net/RMIT_Cimos"
+#define TRAINSTATION "/net/BBB_CimosDirect"
 
 
 
-#define CONTROLHUB_SERVER "ControlServer.info"
+#define CONTROLHUB_SERVER "/fs/ControlServer.info"
 #define TRAIN_SERVER "TrainServer.info"
 
 
