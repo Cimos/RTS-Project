@@ -119,7 +119,7 @@ bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char *mode)
  *	@breif: 											*
  *	@return:returns true or false for success			*
  * ---------------------------------------------------	*/
-bool read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
+FILE read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
 {
 	FILE *fp;
 	char line[255] = {};
@@ -140,7 +140,7 @@ bool read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
 	}
 	else
 	{
-		return false;
+		return NULL;
 	}
 
 	// close file
@@ -165,7 +165,7 @@ bool read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
 	{
 		*pid = -1;
 		*chid = -1;
-		return false;;
+		return NULL;
 	}
 
 	DEBUGF("SubString1: %s\n",str.substr(pos1+sizeof("PID=")-1, pos2).c_str());
@@ -174,9 +174,7 @@ bool read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
 	*pid = atoi(str.substr(pos1+sizeof("PID=")-1, pos2).c_str());
 	*chid = atoi(str.substr(pos3+sizeof("CID=")-1, pos4).c_str());
 
-	// TODO: check for errors in atoi() function call;
-
-	return true;
+	return FILE;
 }
 
 
