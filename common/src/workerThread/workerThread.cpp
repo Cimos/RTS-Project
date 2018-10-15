@@ -4,7 +4,7 @@
 *
 *****************************************************************************/
 /**
-* @file     threadTemplate.h
+* @file     workerThread.h
 * @brief    RTS Traffic Light Project
 * @author   Michael Stekla	s3545953
 * 			Simon Maddison	s3493550
@@ -17,9 +17,12 @@
 /*-----------------------------------------------------------------------------
 * Included Files
 *---------------------------------------------------------------------------*/
-#include "threadTemplate.h"
+#include "workerThread.h"
+
 #include <pthread.h>
 #include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
 #include "../DelayTimer/DelayTimer.h"
 
 /*-----------------------------------------------------------------------------
@@ -27,7 +30,7 @@
 *---------------------------------------------------------------------------*/
 
 #define RING_BUFFER_SIZE 100
-
+#define PROG_NAME "Worker Thread"
 
 // Use to lock mutex
 #define Lock(_Mutex) {		 											\
@@ -106,7 +109,7 @@
 /*-----------------------------------------------------------------------------
 * Global Variables
 *---------------------------------------------------------------------------*/
-
+static char instantiation[4] = " 0 ";
 struct _self
 {
 public:
@@ -135,6 +138,7 @@ public:
 	pthread_mutex_t keepAliveWork_mtx = PTHREAD_MUTEX_INITIALIZER;  // needs to be set to PTHREAD_MUTEX_INITIALIZER;
 	pthread_mutex_t work_mtx = PTHREAD_MUTEX_INITIALIZER;  // needs to be set to PTHREAD_MUTEX_INITIALIZER;
 	pthread_t *workerThread = NULL;
+	std::string progName;
 	//DelayTimer *noWorkSleep;
 
 	Private();
@@ -268,6 +272,12 @@ void* WorkerThread::Private::main_wrapper(void* object)
 
 void WorkerThread::Private::mainWorkThread(void *appData)
 {
+	// setting name of program
+	progName.assign(PROG_NAME);
+	progName.append(instantiation);
+	instantiation[1] += (char)1;
+	pthread_setname_np(pthread_self(), 	progName.c_str());
+
 	int rIndex = 0, wIndex = 0;
 	bool kA = false;
 	//bool successful = 0;

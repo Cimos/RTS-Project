@@ -676,7 +676,7 @@ void* keyPad::mainWorkThread(void *appData)
 
 		val = KeypadReadIObit(gpio1_base, SD0); // read in data bit
 		val = ~val & 0x01;                      // invert bit and mask out everything but the LSB
-		//printf("val[%u]=%u, ",i, val);
+		DEBUGF("keyPad->val[%u]=%u, ",i, val);
 		word = word | (val<<i);  // add data bit to word in unique position (build word up bit by bit)
 		}
 		//puts("word=%u\n",word);
@@ -698,7 +698,7 @@ void* keyPad::mainWorkThread(void *appData)
 	munmap_device_io(gpio1_base, AM335X_GPIO_SIZE);
     munmap_device_io(control_module, AM335X_CONTROL_MODULE_SIZE);
 
-    printf("Thread Dead\n");
+    DEBUGF("keyPad->Thread Dead\n");
 	return 0; // What to return?
 }
 
@@ -728,10 +728,10 @@ void* keyPad::mainWorkThread(void *appData)
 //
 //			val = KeypadReadIObit(gpio1_base, SD0); // read in data bit
 //			val = ~val & 0x01;                      // invert bit and mask out everything but the LSB
-//			//printf("val[%u]=%u, ",i, val);
+			//DEBUGF("keyPad->val[%u]=%u, ",i, val);
 //			word = word | (val<<i);  // add data bit to word in unique position (build word up bit by bit)
 //		}
-//		//printf("word=%u\n",word);
+//		//DEBUGF("keyPad->word=%u\n",word);
 //		DecodeKeyValue(word);
 //	}
 //	out32(gpio1_base + GPIO_IRQSTATUS_1, SD0); //clear IRQ

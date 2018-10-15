@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <iostream>
 
+#include "workerThread.h"
 #include "file_io.h"
 #include "ipc_dataTypes.h"
 #include <unistd.h>

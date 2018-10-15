@@ -16,46 +16,42 @@
 *---------------------------------------------------------------------------*/
 
 #include "control_hub.h"
-#include <sys/iomsg.h>
 
-#include <stdio.h>
-#include <stdlib.h>
 #include "lcdThread.h"
-
-//#include "threadTemplate.h"
-//#include "lcdThread.h"
-//#include "DelayTimer.h"
-
+#include "DelayTimer.h"
 #include "boneGpio.h"
 #include <FT800.h>
 #include "file_io.h"
 #include "keyPad.h"
 #include "debug.h"
-#include "threadTemplate.h"
+#include "workerThread.h"
 
-
+#include <stdio.h>
+#include <stdlib.h>
 #include <iostream>
-
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include <fcntl.h>
-#include <sys/netmgr.h>
-
-#include <errno.h>
 #include <unistd.h>
-#include <sys/neutrino.h>
-#include <semaphore.h>
 #include <time.h>
+#include <errno.h>
 
-#include <sys/iofunc.h>
-#include <sys/dispatch.h>
 
+//#include <semaphore.h>
+//#include <fcntl.h>
+
+//#include <netinet/in.h>
+//#include <net/if.h>
+//
+//#include <sys/neutrino.h>
+//#include <sys/netmgr.h>
+//#include <sys/iofunc.h>
+//
+//#include <sys/dispatch.h>
+//#include <sys/socket.h>
+//#include <sys/types.h>
+//#include <sys/ioctl.h>
+//#include <sys/iomsg.h>
 
 
 /*-----------------------------------------------------------------------------
@@ -65,7 +61,6 @@
 #define Co_Ctrl   0x00  // mode to tell LCD we are sending a single command
 #define DATA_SEND 0x40  // sets the Rs value high
 #define MENUPRINT printf
-
 
 // Use to lock mutex
 #define Lock(_Mutex) {		 											\
@@ -87,13 +82,11 @@
 
 typedef struct
 {
+	int priority;
 	pthread_t thread;
 	pthread_attr_t attr;
 	struct sched_param sch_prm;
-	int priority;
 }_thread;
-
-
 
 
 struct self
@@ -104,12 +97,6 @@ struct self
 	char buf[MESSAGESIZE] = {};
 	int errorVal = 0;
 	char *progName = "Control Hub";
-
-	// ******** thread handlers
-
-	// ********* IntrSect's
-	controler2Intersection intrSect_1;
-	controler2Intersection intrSect_2;
 
 	// ********* Keypad
 	struct
@@ -139,27 +126,37 @@ struct self
 	{
 		WorkerThread server;
 		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
-		_thread serverThread;
-		char *threadName = "control server";
+		_thread serverThread = {0};
+		char *threadName = "Control Hub Server";
 		int living = 1;
 		int serverPID = -1;
 		int serverCHID = -1;
 //		_data msg;			// received msg
-//		_reply replymsg;	// replying msg
+//		_data replymsg;	// replying msg
 		trafficLightStates T1 =trafficLightStates::DEFAULT_TLS;
 		trafficLightStates T2 =trafficLightStates::DEFAULT_TLS;
-		trainStationStates I1 =trainStationStates::DEFAULT_TSS;
+		trainStationStates T3 =trainStationStates::DEFAULT_TSS;
 
 	}server;
 
 
+	// ******** Client Struct
 	struct
 	{
-	int serverPID;
-	int serverChID;
-	int server_coid;
+	WorkerThread client;
+	pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+	_thread clientWorkThread = {0};
+	_thread clientInitThread = {0};
+	char *workingthreadName = "Train Service Work";
+	char *servicethreadName = "Train Station Service";
+	int living = 1;
+	int serverPID = 0;
+	int serverCHID = 0;
+	int *server_coid = 0;
+	int nodeDescriptor = 0;
+	trainStationStates Train1 = trainStationStates::DEFAULT_TSS;
 	_data* msg;
-	_reply *reply;
+	_data *reply;
 	}client;
 
 }self;
@@ -171,10 +168,11 @@ struct self
 *---------------------------------------------------------------------------*/
 //Server/Client
 void *serverReceiver(void *chid);
-void *serverSender(workBuf *work);
 void clientDisconnect(int server_coid);
-_reply* clientSendMsg(_data* msg, _reply *reply);
 int clientConnect(int serverPID,  int serverChID, int nodeDescriptor);
+void *train_client(void *appData);
+void *clientService(void *notUsed);
+void trainClient_Start(int prio);
 
 //init different services
 void threadInit(_thread *th);
@@ -192,7 +190,7 @@ void *kpWork(workBuf *work);
 //logging
 void logTrainData(_data *toLog);
 void logIntersectionData(_data *toLog);
-//void logData(_reply *toLog);
+//void logData(_data *toLog);
 void logKeyPress(char key);
 
 // printing menu
@@ -205,21 +203,11 @@ int printMenu(int mode);
 int main(void)		//TODO: set date and time
 {
 	std::string tmp(STARTUP_MSG);
-	int PID = 0;
-	int CHID = 0;
 
 	init();
 
-	std::string tt(CONTROLHUB);
-	tt.append(CONTROLHUB_SERVER);
 
-
-	std::cout << "Node Descriptor=" << read_pid_chid_FromFile(&PID, &CHID, CONTROLHUB,CONTROLHUB_SERVER) << std::endl;
-	std::cout << "PID=" << PID << std::endl;
-	std::cout << "CHID=" << CHID << std::endl;
-
-
-//	char input = printMenu(1);
+	//char input = printMenu(1);
 	//splash_screen2();
 
 
@@ -255,45 +243,45 @@ void *kpWork(workBuf *work)
 
 	logKeyPress(tmp);
 
-	//self.server.server.doWork(buf, size, mode)
 	Lock(self.server.Mtx);
 
 	switch(tmp)
 	{
 	case '1':
-//		self.server.replymsg.train_data.currentState = trainStationStates::BOOM_GATE_UP;
+		self.server.T3 =trainStationStates::REQUEST_BOOM_GATE_UP;
 		break;
 	case '2':
-//		self.server.replymsg.train_data.currentState = trainStationStates::BOOM_GATE_DOWN;
+		self.server.T3 =trainStationStates::REQUEST_BOOM_GATE_DOWN;
 		break;
 	case '3':
 		//UpdateNetworkTime();
 		break;
 	case '4':
-		//RequestTrafficLight1Change(NSG);
+		self.server.T1 =trafficLightStates::NSG;
 		break;
 	case '5':
-		//RequestTrafficLight1Change(EWG);
+		self.server.T1 =trafficLightStates::EWG;
 		break;
 	case '6':
-		//RequestTrafficLight2Change(NSG);
+		self.server.T2 =trafficLightStates::NSG;
 		break;
 	case '7':
-		//RequestTrafficLight2Change(EWG);
+		self.server.T2 =trafficLightStates::EWG;
 		break;
 	case '8':
-		//RequestTrafficLight2Change(NSTG);
+		self.server.T1 =trafficLightStates::NSTG;
 		break;
 	case '9':
-		//RequestTrafficLight2Change(EWTG);
+		self.server.T2 =trafficLightStates::EWTG;
 		break;
 	case 'A':
-		//RequestTrafficLight1Change(NSTG);
+		self.server.T1 =trafficLightStates::NSTG;
 		break;
 	case 'B':
-		//RequestTrafficLight1Change(EWTG);
+		self.server.T1 =trafficLightStates::EWTG;
 		break;
 	case 'C':
+		//TODO: get this working
 		//RequestTrafficLight1DecreaseStateChange();
 		break;
 	case 'D':
@@ -313,7 +301,6 @@ void *kpWork(workBuf *work)
 	}
 	Unlock(self.server.Mtx);
 
-
 	return NULL;
 }
 
@@ -325,7 +312,14 @@ void *kpWork(workBuf *work)
  * ---------------------------------------------------	*/
 void keypad_cb(char keyPress)
 {
+	Lock(self.kp.Mtx);
+	// Posting work to thread which isnt time dependent
 	self.kp.kpWorker.doWork(&keyPress, 1, 0);
+	Unlock(self.kp.Mtx);
+
+	// 1us second delay to reduce multiple key presses
+	DelayTimer timer(false, 1, 1000, 0, 0);
+	timer.createTimer();
 }
 
 
@@ -337,17 +331,23 @@ void keypad_cb(char keyPress)
  * ---------------------------------------------------	*/
 void init(void)
 {
+	// geting io priv's
 	ThreadCtl(_NTO_TCTL_IO_PRIV , (void*)0);
+
+	// setting name of program
 	pthread_setname_np(pthread_self(), 	self.progName);
 
 
+	// Writing a new header to the log file
 	std::string tmp(STARTUP_MSG);
 	write_string_ToFile(&tmp, CHLOG, "a+");
 
+	// starting server, keypad and lcd services.
 	serverInit();
 	//keypadInit(5);
 	//FT800_Init();
 
+	trainClient_Start(50);
 }
 
 
@@ -359,7 +359,10 @@ void init(void)
  * ---------------------------------------------------	*/
 void destroy(void)
 {
-
+	// Shut everything down. especially threads
+	Lock(self.client.Mtx);
+	self.client.living = false;
+	Unlock(self.client.Mtx);
 }
 
 
@@ -379,9 +382,12 @@ bool keypadInit(int prio)
     pthread_attr_setinheritsched (&self.kp.keyPad_attr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setstacksize (&self.kp.keyPad_attr, 8000);
 
+    // setting up callbacks and worker threads
 	self.kp.thread.registerCallback(keypad_cb);
 	self.kp.thread.start(&self.kp.keyPad_attr);
 	self.kp.kpWorker.setWorkFunction(kpWork);
+
+	return true;
 }
 
 
@@ -393,16 +399,26 @@ bool keypadInit(int prio)
  * ---------------------------------------------------	*/
 void serverInit(void)
 {
-	Lock(self.server.Mtx);
 	DEBUGF("serverInit()->Initializing Server:\n");
+
+	// locking server mutex
+	Lock(self.server.Mtx);
+
+	// Initializing thread attributes
 	threadInit(&self.server.serverThread);
 
-	self.server.serverPID = getpid(); 		// get server process ID
-	self.server.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
+	// get server process ID
+	self.server.serverPID = getpid();
 
-	if (self.server.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
+	// Create Channel
+	self.server.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT);
+
+	// _NTO_CHF_DISCONNECT flag used to allow detach
+	if (self.server.serverCHID == -1)
 	{
 		DEBUGF("serverInit()->Failed to create communication channel on server\n");
+
+		// unlocking mutex
 		Unlock(self.server.Mtx);
 		return;
 	}
@@ -411,16 +427,17 @@ void serverInit(void)
 	DEBUGF("serverInit()->Process ID   : %d \n", self.server.serverPID);
 	DEBUGF("serverInit()->Channel ID   : %d \n", self.server.serverCHID);
 
+	// writing server info to control hub file
 	write_pid_chid_ToFile(self.server.serverPID, self.server.serverCHID, CONTROLHUB_SERVER);
 
 	DEBUGF("serverInit()->Server listening for clients:\n");
 
+	// starting server receiver
 	pthread_create(&self.server.serverThread.thread, NULL, serverReceiver, (void *)&self);
 
 	DEBUGF("serverInit()->Finished server Init:\n");
 
-	self.server.server.setWorkFunction(serverSender);
-
+	// unlocking mutex
 	Unlock(self.server.Mtx);
 	return;
 }
@@ -433,6 +450,7 @@ void serverInit(void)
  * ---------------------------------------------------	*/
 void threadInit(_thread *th)
 {
+	// setting up thread attributes
     pthread_attr_init (&th->attr);
     pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
     th->sch_prm.sched_priority = th->priority;
@@ -442,7 +460,6 @@ void threadInit(_thread *th)
 }
 
 
-//TODO: Fix this for appData
 /* ----------------------------------------------------	*
  *	@serverReceiver Implementation:						*
  *	@brief:												*
@@ -450,19 +467,27 @@ void threadInit(_thread *th)
  * ---------------------------------------------------	*/
 void *serverReceiver(void *appData)
 {
-	struct self* self = (struct self*)appData;
-	_data msg;// = &self->server.msg;
-	_reply replymsg;// = &self->server.replymsg;
-
-
-	pthread_setname_np(pthread_self(),self->server.threadName);	//TODO: check this works
-
 	int rcvid=0, msgnum=0;  	// no message received yet
 	int Stay_alive=0;
+	int error = 0;
+	_data msg;
+	_data replymsg;
+
+
+	// getting self (bit pointless considering its a global struct
+	struct self* self = (struct self*)appData;
+
+	// mutex locking
+	Lock(self->server.Mtx);
+
 	int *living = &self->server.living;	// stay alive and living for controlling the server status
     int chid = self->server.serverCHID;
-    int error = 0;
 
+	// naming thread
+	pthread_setname_np(pthread_self(),self->server.threadName);
+
+	// mutex unlocking
+	Unlock(self->server.Mtx);
 
 	replymsg.hdr.type = 0x01;
 	replymsg.hdr.subtype = 0x00;
@@ -523,30 +548,29 @@ void *serverReceiver(void *appData)
             {
                 MsgReply( rcvid, EOK, NULL, 0 );
                 DEBUGF("Server->gns service is running....\n");
-                continue;	// go back to top of while loop
+                continue;	// Next loop
             }
 
             if (msg.hdr.type > _IO_BASE && msg.hdr.type <= _IO_MAX )
             {
                 MsgError( rcvid, ENOSYS );
                 DEBUGF("Server->received and IO message and rejected it....\n");
-                continue;	// go back to top of while loop
+                continue; // Next loop
             }
 
             DEBUGF("Server->logging received message\n");
 
+            // Locking sever mutex
     		Lock(self->server.Mtx);
-
-        	// TODO: place this into a control function that does all the work
         	switch(msg.ClientID)
         	{
         	case clients::TRAFFIC_L1:
         		//updateTrafficLight1Status();	// ie screen or gui
         		DEBUGF("Server->message received from Traffic light 1\n");
         		logIntersectionData(&msg);
-        		replymsg.inter_data.currentState = trafficLightStates::DEFAULT_;
+        		replymsg.inter_data.currentState = self->server.T1;
+                self->server.T1 = trafficLightStates::DEFAULT_TLS;
                 MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
-        		replymsg.inter_data.currentState = trafficLightStates::DEFAULT_TLS;
 
         		break;
         	case clients::TRAFFIC_L2:
@@ -554,56 +578,30 @@ void *serverReceiver(void *appData)
         		DEBUGF("Server->message received from Traffic light 2\n");
         		logIntersectionData(&msg);
         		replymsg.inter_data.currentState = self->server.T2;
+        		self->server.T2 = trafficLightStates::DEFAULT_TLS;
                 MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
-        		replymsg.inter_data.currentState = trafficLightStates::DEFAULT_TLS;
 
         		break;
         	case clients::TRAIN_I1:
         		//updateTrainIntersection1Status();	// ie screen or gui
         		DEBUGF("Server->message received from Train Station 1\n");
         		logTrainData(&msg);
-        		replymsg.train_data.currentState = self->server.I1;
+        		replymsg.train_data.currentState = self->server.T3;
+        		self->server.T3 = trainStationStates::DEFAULT_TSS;
                 MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
-        		replymsg.inter_data.currentState = trainStationStates::DEFAULT_TSS;
 
         		break;
         	default:
         		break;
         	}
+        	// Unlocking mutex
     		Unlock(self->server.Mtx);
-
-
-
         }
         else
         {
         	DEBUGF("Server->ERROR->received something, but could not handle it correctly\n");
         }
     }
-	return NULL;
-}
-
-
-/* ----------------------------------------------------	*
- *	@serverReceiver Implementation:						*
- *	@brief:												*
- *	@return:											*
- * ---------------------------------------------------	*/
-void *serverSender(workBuf *work)
-{
-	_data msg;
-	_reply reply;
-	long rcvid = 0;
-	int chid = self.server.serverCHID;
-
-
-	Lock(self.server.Mtx);
-
-
-	rcvid = MsgSend(chid, &msg, sizeof(msg), &reply, sizeof(reply));
-
-	Unlock(self.server.Mtx);
-
 	return NULL;
 }
 
@@ -667,29 +665,6 @@ void logTrainData(_data *toLog)
 
 
 /* ----------------------------------------------------	*
- *	@logData Implementation:							*
- *	@brief:												*
- *	@return:											*
- * ---------------------------------------------------	*/
-//void logData(_reply *toLog)
-//{
-//	std::string toLogData;
-//	Lock(self.tm.Mtx)
-//	self.tm.time = time(NULL);
-//	self.tm.currentTime = localtime(&self.tm.time);
-//	std::string time(asctime(self.tm.currentTime));
-//	Unlock(self.tm.Mtx)
-//
-//	// creating cvs formate with time and date stamp
-//	toLogData.append(time.substr(0,time.length()-1));
-//	toLogData.append(":Reply->ClientID=");
-//	toLogData.append(";\n");
-//	write_string_ToFile(&toLogData, CHLOG, "a+");
-//	Unlock(self.tm.Mtx)
-//}
-
-
-/* ----------------------------------------------------	*
  *	@logKeyPress Implementation:						*
  *	@brief:												*
  *	@return:											*
@@ -732,72 +707,129 @@ int printMenu(int mode)
 }
 
 
+/* ----------------------------------------------------	*
+ *	@trainClient_Start Implementation:					*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void trainClient_Start(int prio)
+{
+	Lock(self.client.Mtx);
+	self.client.clientInitThread.priority = prio;
+	self.client.clientWorkThread.priority = prio;
+	threadInit(&self.client.clientInitThread);
+	pthread_create(&self.client.clientInitThread.thread, &self.client.clientInitThread.attr, clientService, NULL);
+
+	Unlock(self.client.Mtx);
+}
 
 
 /* ----------------------------------------------------	*
- *	@printMenu Implementation:							*
+ *	@clientService Implementation:						*
  *	@brief:												*
  *	@return:	server_coid								*
  * ---------------------------------------------------	*/
-void clientinit()
+void *clientService(void *notUsed)
 {
+	bool fileExists = false;
+	int nD = -1;
+	DelayTimer timout(false, 0, 3, 0, 0);
+	int pid = 0;
+	int chid = 0;
 
+	Lock(self.client.Mtx);
+	// naming thread
+	pthread_setname_np(pthread_self(),self.client.servicethreadName);
+
+	Unlock(self.client.Mtx);
+
+	std::string fullFilePath(TRAINSTATION);
+	fullFilePath.append(TRAIN_SERVER);
+
+
+	while(true)
+	{
+		//checking if file for server exists
+		do
+		{
+			DEBUGF("clientService->checking for file with train server details\n");
+
+			fileExists = checkIfFileExists(fullFilePath.c_str());
+			timout.createTimer();
+
+		}while(!fileExists);
+
+		nD = read_pid_chid_FromFile(&pid, &chid, TRAINSTATION, TRAIN_SERVER);
+
+		if (nD != 0)
+		{
+			break;
+			DEBUGF("clientService->Server file found with a valid node descriptor\n");
+		}
+		timout.createTimer();
+	}
+
+	Lock(self.client.Mtx);
+	self.client.serverPID = pid;
+	self.client.serverCHID = chid;
+	self.client.nodeDescriptor = nD;
+	Unlock(self.client.Mtx);
+
+	// start client service for train station
+	self.client.clientWorkThread.priority = 10;
+	threadInit(&self.client.clientWorkThread);
+
+	pthread_create(&self.client.clientWorkThread.thread, &self.client.clientWorkThread.attr, train_client, NULL);
+
+	// wait for working thread to finish
+	pthread_join(self.client.clientWorkThread.thread, NULL);
+
+
+	//locking mutex
+	Lock(self.client.Mtx);
+
+	// Check if living and if node has failed.. i.e. a drop.
+	if (self.client.living == 0)
+	{
+		Unlock(self.client.Mtx);
+		return NULL;
+	}
+	// create a thread that is this function and then exit this thread.
+	pthread_create(&self.client.clientInitThread.thread, &self.client.clientInitThread.attr, train_client, NULL);
+
+	// reconnection counter
+	// create longer delay?
+	Unlock(self.client.Mtx);
+
+
+	return NULL;
 }
 
 
 
 /* ----------------------------------------------------	*
- *	@printMenu Implementation:							*
+ *	@clientConnect Implementation:						*
  *	@brief:												*
- *	@return:	server_coid								*
+ *	@return:	int										*
  * ---------------------------------------------------	*/
 int clientConnect(int serverPID,  int serverChID, int nodeDescriptor)
 {
     int server_coid;
 
-    DEBUGF("\t--> Trying to connect (server) process which has a PID: %d\n",   serverPID);
-    DEBUGF("\t--> on channel: %d\n", serverChID);
+    DEBUGF("clientConnect->trying to connect (server) process which has a PID: %d\n", serverPID);
+    DEBUGF("clientConnect->on channel: %d\n", serverChID);
 
 	// set up message passing channel
     server_coid = ConnectAttach(nodeDescriptor, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
 	if (server_coid == -1)
 	{
-		DEBUGF("\n\tERROR, could not connect to server!\n\n");
+		DEBUGF("clientConnect->ERROR, could not connect to server!\n\n");
         return server_coid;
 	}
 
-	DEBUGF("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
+	DEBUGF("clientConnect->connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
     return server_coid;
 }
-
-
-
-/* ----------------------------------------------------	*
- *	@clientSendMsg Implementation:						*
- *	@brief:												*
- *	@return:	server_coid								*
- * ---------------------------------------------------	*/
-_reply* clientSendMsg(int server_coid, _data* msg, _reply *reply)
-{
-
-    // the data we are sending is in msg.data
-    DEBUGF("Client (ID:%d), sending data packet\n", msg->ClientID);
-    fflush(stdout);
-
-    if (MsgSend(server_coid, &msg, sizeof(msg), reply, sizeof(_reply)) == -1)
-    {
-    	DEBUGF(" Error data NOT sent to server\n");
-    	return NULL;
-    }
-    else
-    { // now process the reply
-    	//DEBUGF("-->Reply is: '%s'\n", reply->buf);
-    }
-
-
-    return reply;
-}
-
 
 
 /* ----------------------------------------------------	*
@@ -812,6 +844,88 @@ void clientDisconnect(int server_coid)
     return;
 }
 
+
+
+
+
+void *train_client(void *appData)
+{
+	DEBUGF("trainClient->Thread started\n");
+	//  Timer
+	DelayTimer pingInterval(false, 0, 1, 0, 0);
+	DelayTimer channelCreate(false,0,1,0,0);
+	int server_coid = 0;
+	// set up data packet
+	bool message = false;
+	bool reply_train = false;
+
+	// mutex locking
+	Lock(self.client.Mtx);
+
+    int pid = self.client.serverPID;
+    int chid = self.client.serverCHID;
+    int nodeDescriptor = self.client.nodeDescriptor;
+    self.client.server_coid = &server_coid;
+	// naming thread
+	pthread_setname_np(pthread_self(),self.client.workingthreadName);
+
+	// mutex unlocking
+	Unlock(self.client.Mtx);
+
+	// Print debug
+	DEBUGF("trainClient->Connecting to Train Server: PID: %d \tCHID %d\n", pid,chid);
+
+	// Set up message channel
+	do
+	{
+	DEBUGF("trainClient->Creating channel to server");
+	server_coid = clientConnect(pid, chid,nodeDescriptor);
+	channelCreate.createTimer();
+	}while(server_coid < 0);
+
+
+	while (self.client.living)
+	{
+
+
+		// Try sending the message
+		if (MsgSend(server_coid, &message, sizeof(message), &reply_train, sizeof(reply_train)) == -1)
+		{
+			// Reply not received from server
+			DEBUGF("trainClient->Error data NOT sent to train server\n", message);
+		}
+		else
+		{
+			// Process the reply
+			DEBUGF("trainClient->train sServer reply is: '%d'\n", reply_train);
+
+			// Update train server
+			if (reply_train)
+			{
+				Lock(self.client.Mtx);
+				self.client.Train1 = trainStationStates::BOOM_GATE_UP;
+				Unlock(self.client.Mtx);
+				DEBUGF("trainClient->train boom gates are up\n");
+			}
+			else
+			{
+				Lock(self.client.Mtx);
+				self.client.Train1 = trainStationStates::BOOM_GATE_UP;
+				Unlock(self.client.Mtx);
+				DEBUGF("trainClient->train boom gates are down\n");
+			}
+		}
+
+		// ping delay
+		pingInterval.createTimer();
+	}
+
+	// Close  connection
+	clientDisconnect(server_coid);
+
+	DEBUGF("trainClient->Thread Terminated\n");
+	return EXIT_SUCCESS;
+}
 
 
 

@@ -91,12 +91,12 @@ int i2cInit(_self_i2c *self)
 	error = devctl(self->I2C_handle.fd,DCMD_I2C_SET_BUS_SPEED,&(self->I2C_handle.bus_speed),sizeof(self->I2C_handle.bus_speed),NULL);  // Set Bus speed
 	if (error)
 	{
-		//fprintf(stderr, "->Error setting the bus speed: %d\n",strerror ( error ));
+		DEBUGF("lcd->Error setting the bus speed: %d\n",strerror ( error ));
 		return error;
 	}
 	else
 	{
-		//printf("->Bus speed set: %d\n", speed);
+		DEBUGF("lcd->Bus speed set: %d\n", speed);
 	}
 
 	return 0;

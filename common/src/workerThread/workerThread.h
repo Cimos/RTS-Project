@@ -4,7 +4,7 @@
 *
 *****************************************************************************/
 /**
-* @file     threadTemplate.h
+* @file     workerThread.h
 * @brief    RTS Traffic Light Project
 * @author   Michael Stekla	s3545953
 * 			Simon Maddison	s3493550
@@ -40,8 +40,8 @@ void *work_cb(workBuf *work)
 */
 
 
-#ifndef SRC_THREADTEMPLATE_THREADTEMPLATE_H_
-#define SRC_THREADTEMPLATE_THREADTEMPLATE_H_
+#ifndef SRC_WORKERTHREAD_WORKERTHREAD_H_
+#define SRC_WORKERTHREAD_WORKERTHREAD_H_
 
 /*-----------------------------------------------------------------------------
 * Included Files
@@ -67,6 +67,7 @@ struct workBuf{
   int size = 0;
 };
 
+
 /*-----------------------------------------------------------------------------
 * Global Function Declarations
 *---------------------------------------------------------------------------*/
@@ -89,5 +90,5 @@ public:
 
 
 
-#endif /* SRC_THREADTEMPLATE_THREADTEMPLATE_H_ */
+#endif /* SRC_WORKERTHREAD_WORKERTHREAD_H_ */
 

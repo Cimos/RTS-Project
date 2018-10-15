@@ -43,7 +43,7 @@
 #include <sys/iofunc.h>
 #include <errno.h>
 
-#include "threadTemplate.h"
+#include "workerThread.h"
 #include "DelayTimer.h"
 #include "boneGpio.h"
 #include "ipc_dataTypes.h"

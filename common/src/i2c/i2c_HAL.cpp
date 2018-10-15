@@ -284,14 +284,14 @@ int I2C_Open(I2C_HANDLE *handle, int port, UINT32 i2cFrequency, UINT8 notUsed1, 
 	if ((handle->fd = open("/dev/i2c1", O_RDWR)) < 0)
 	{
 		error = errno;
-	    printf( "The error generated was %d\n", error );
-	    printf( "That means: %s\n", strerror( error ) );
+		DEBUGF("i2c_HAL->The error generated was %d\n", error );
+		DEBUGF("i2c_HAL->That means: %s\n", strerror( error ) );
 	    fflush(stdout);
 		return -1;
 	}
 
 	error = devctl(handle->fd, DCMD_I2C_SET_BUS_SPEED, &(handle->bus_speed), sizeof(handle->bus_speed), NULL);
-	//fprintf(stderr, "Error setting the I2C bus speed: %s\n",strerror ( error ));
+	DEBUGF("i2c_HAL->Error setting the I2C bus speed: %s\n",strerror ( error ));
 
 
 
@@ -331,7 +331,7 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, int size, UINT8 *command)
 
 	int error = devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
 
-	//fprintf(stderr, "Error sending i2c msg: %s\n",strerror ( error ));
+	DEBUGF("i2c_HAL->Error sending i2c msg: %s\n",strerror ( error ));
 
 	return error;
 }
@@ -346,7 +346,8 @@ int I2C_Write(I2C_HANDLE *handle, UINT8 addr, int size, UINT8 *command)
 
 int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UINT8 *retBuf, int size2)
 {
-	i2c_sendrecv_t  hdr;
+	int error = 0;
+//	i2c_sendrecv_t  hdr;
 	i2c_send_t  hdr_send;
 	i2c_recv_t  hdr_recv;
 	iov_t siov[2] = {};
@@ -383,10 +384,14 @@ int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UIN
 
 	//devctlv(handle->fd, DCMD_I2C_SENDRECV, 2, 2, siov, riov, NULL);
 	devctlv(handle->fd, DCMD_I2C_SEND, 2, 0, siov, NULL, NULL);
-	devctlv(handle->fd, DCMD_I2C_RECV, 2, 0, riov, NULL, NULL);
 
-	//    fprintf(stderr, "Error setting RTS: %s\n",
-//        strerror ( error ));
+	error = errno;
+	DEBUGF("i2c_HAL->Error with i2c: %s\n", strerror ( error ));
+
+
+	devctlv(handle->fd, DCMD_I2C_RECV, 2, 0, riov, NULL, NULL);
+	error = errno;
+	DEBUGF("i2c_HAL->Error with i2c: %s\n", strerror ( error ));
 
 	return 0;
 }

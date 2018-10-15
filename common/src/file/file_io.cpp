@@ -58,8 +58,7 @@ bool checkIfFileExists(const char *fileName, int mode)
 	// error code returned from access
 	int error = -1;
 
-	error = access( fileName, F_OK );
-	DEBUGF("Checking If File Exists:\n");
+	error = access( fileName, mode );
 
 	if (error == 0)
 		return true;
@@ -84,7 +83,7 @@ bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char *mode)
 	//str = "PID=" + std::to_string(pid) +",CID=" + std::to_string(chid) + ";";
 
 	fp = fopen(file2Write2, mode);
-	DEBUGF("File Open:\n");
+	DEBUGF("file_io->File Open:\n");
 
 	// setting errno to know val
 	errno = EOK;
@@ -98,18 +97,18 @@ bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char *mode)
 	// error if write didnt work properly
 	if (errorVal != EOK)
 	{
-		DEBUGF("Error: %s\n", strerror( errorVal));
+		DEBUGF("file_io->Error: %s\n", strerror( errorVal));
 		return false;
 	} else if (ret <= 0)
 	{
-		DEBUGF("Error with opening file info\n");
+		DEBUGF("file_io->Error with opening file info\n");
 		return false;
 	}
 
-	DEBUGF("Written %d characters to \"%s\":\n",ret, file2Write2);
+	DEBUGF("file_io->Written %d characters to \"%s\":\n",ret, file2Write2);
 
 	ret = fclose(fp);
-	DEBUGF("File Close:\n");
+	DEBUGF("file_io->File Close:\n");
 
 	return true;
 }
@@ -133,15 +132,15 @@ int read_pid_chid_FromFile(int *pid, int *chid, const char *node, const char *fi
 
 	// Open file with read only
 	fd = open(_file2Read.c_str(), O_RDWR );	// mode = read only
-	DEBUGF("File Open:\n");
+	DEBUGF("file_io->file_io->File Open:\n");
 
 
 	if( fd != NULL )
 	{
-		DEBUGF("File Reading:\n");
+		DEBUGF("file_io->File Reading:\n");
 		while(read(fd,  &line,  sizeof(line)) != 0 )
 		{
-			DEBUGF("id=%s\n", line );
+			DEBUGF("file_io->id=%s\n", line );
 		}
 	}
 	else
@@ -151,7 +150,7 @@ int read_pid_chid_FromFile(int *pid, int *chid, const char *node, const char *fi
 
 	// close file
 	close(fd);
-	DEBUGF("File Close:\n");
+	DEBUGF("file_io->File Close:\n");
 
 	// using strings to easily find pid cid
 	std::string str(line);
@@ -161,32 +160,31 @@ int read_pid_chid_FromFile(int *pid, int *chid, const char *node, const char *fi
 	pos3 = str.find("CID=");
 	pos4 = str.find(";");
 
-	DEBUGF("pos1: %d\n",pos1);
-	DEBUGF("pos2: %d\n",pos2);
-	DEBUGF("pos3: %d\n",pos3);
-	DEBUGF("pos4: %d\n",pos4);
+	DEBUGF("file_io->pos1: %d\n",pos1);
+	DEBUGF("file_io->pos2: %d\n",pos2);
+	DEBUGF("file_io->pos3: %d\n",pos3);
+	DEBUGF("file_io->pos4: %d\n",pos4);
 
 	// Checking that all str->find() returned a position
 	if (pos1 == -1 || pos2 == -1 || pos3 == -1 || pos4 == -1)
 	{
-		*pid = -1;
-		*chid = -1;
 		return -1;
 	}
 
-	DEBUGF("SubString1: %s\n",str.substr(pos1+sizeof("PID=")-1, pos2).c_str());
-	DEBUGF("SubString2: %s\n",str.substr(pos3+sizeof("CID=")-1, pos4).c_str());
+	DEBUGF("file_io->SubString1: %s\n",str.substr(pos1+sizeof("PID=")-1, pos2).c_str());
+	DEBUGF("file_io->SubString2: %s\n",str.substr(pos3+sizeof("CID=")-1, pos4).c_str());
 
 	*pid = atoi(str.substr(pos1+sizeof("PID=")-1, pos2).c_str());
 	*chid = atoi(str.substr(pos3+sizeof("CID=")-1, pos4).c_str());
 
-	nd = netmgr_strtond( node, NULL);
+	nd = netmgr_strtond(node, NULL);
 	if (nd == -1) {
-		DEBUGF("Filed to get ND");
+		DEBUGF("file_io->failed to get ND\n");
 		return -1;
 	}
-	else {
-		DEBUGF ("Node id for %s is %d.\n", node, nd);
+	else
+	{
+		DEBUGF ("Node descriptor for %s is %d\n", node, nd);
 	}
 
 	return nd;
@@ -222,15 +220,15 @@ bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Rea
 
 	// Open file with read only
 	fp = fopen(file2Read->c_str(), mode );	// mode = read only
-	DEBUGF("File Open:\n");
+	DEBUGF("file_io->File Open:\n");
 
 
 	if( fp != NULL )
 	{
-		DEBUGF("File Reading:\n");
+		DEBUGF("file_io->File Reading:\n");
 		while( fread(line, sizeof(char), size2Read, fp ) != 0 )
 		{
-			DEBUGF("%s\n", *line );
+			DEBUGF("file_io->%s\n", *line );
 		}
 	}
 	else
@@ -241,7 +239,7 @@ bool read_string_FromFile(std::string *buf, int size2Read, std::string *file2Rea
 
 	// close file
 	fclose(fp);
-	DEBUGF("File Close:\n");
+	DEBUGF("file_io->File Close:\n");
 
 	// copying read data into string
 	(*buf) = line;
@@ -283,15 +281,15 @@ bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char *mode)
 
 	// Open file with read only
 	fp = fopen(file2Read,  mode );	// mode = read only
-	DEBUGF("File Open:\n");
+	DEBUGF("file_io->File Open:\n");
 
 
 	if( fp != NULL )
 	{
-		DEBUGF("File Reading:\n");
+		DEBUGF("file_io->File Reading:\n");
 		while( fread(line, sizeof(char), sizeOfBuf, fp ) != 0 )
 		{
-			DEBUGF("%s\n", *line );
+			DEBUGF("file_io->%s\n", *line );
 		}
 	}
 	else
@@ -302,7 +300,7 @@ bool read_string_FromFile(char *buf, int sizeOfBuf, char *file2Read, char *mode)
 
 	// close file
 	fclose(fp);
-	DEBUGF("File Close:\n");
+	DEBUGF("file_io->File Close:\n");
 
 	// copying read data into buffer is sizeOfBud
 	memcpy((void*)buf, (void*)line, (size_t)sizeOfBuf);
@@ -344,7 +342,7 @@ bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char *mode)
 	int ret = 0, errorVal;
 	// Open file with read only
 	fp = fopen(file2Write, mode );	// mode = read only
-	DEBUGF("File Open:\n");
+	DEBUGF("file_io->File Open:\n");
 
 
 	if( fp != NULL )
@@ -352,7 +350,7 @@ bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char *mode)
 		// setting errno to know val
 		errno = EOK;
 
-		DEBUGF("File Writing:\n");
+		DEBUGF("file_io->File Writing:\n");
 		ret = fwrite(buf, sizeof(char), sizeOfBuf, fp );
 
 		// getting errno val
@@ -361,11 +359,11 @@ bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char *mode)
 		// error if write didnt work properly
 		if (errorVal != EOK)
 		{
-			DEBUGF("Error: %s\n", strerror(errorVal));
+			DEBUGF("file_io->Error: %s\n", strerror(errorVal));
 			return false;
 		} else if (ret <= 0)
 		{
-			DEBUGF("Error with write file info\n");
+			DEBUGF("file_io->Error with write file info\n");
 			return false;
 		}
 
@@ -378,7 +376,7 @@ bool write_string_ToFile(char *buf, int sizeOfBuf, char *file2Write, char *mode)
 
 	// close file
 	fclose(fp);
-	DEBUGF("File Close:\n");
+	DEBUGF("file_io->File Close:\n");
 
 	// return success
 	return true;
@@ -415,7 +413,7 @@ bool write_string_ToFile(std::string *buf, std::string *file2Write, char *mode)
 	int ret = 0, errorVal;
 	// Open file with read only
 	fp = fopen(file2Write->c_str(), mode );	// mode = read only
-	DEBUGF("File Open:\n");
+	DEBUGF("file_io->File Open:\n");
 
 
 	if( fp != NULL )
@@ -423,7 +421,7 @@ bool write_string_ToFile(std::string *buf, std::string *file2Write, char *mode)
 		// setting errno to know val
 		errno = EOK;
 
-		DEBUGF("File Writing:\n");
+		DEBUGF("file_io->File Writing:\n");
 		ret = fwrite(buf->c_str(), sizeof(char), buf->length(), fp );
 
 		// getting errno val
@@ -432,11 +430,11 @@ bool write_string_ToFile(std::string *buf, std::string *file2Write, char *mode)
 		// error if write didnt work properly
 		if (errorVal != EOK)
 		{
-			DEBUGF("Error: %s\n", strerror(errorVal));
+			DEBUGF("file_io->Error: %s\n", strerror(errorVal));
 			return false;
 		} else if (ret <= 0)
 		{
-			DEBUGF("Error with write file info\n");
+			DEBUGF("file_io->Error with write file info\n");
 			return false;
 		}
 
@@ -449,7 +447,7 @@ bool write_string_ToFile(std::string *buf, std::string *file2Write, char *mode)
 
 	// close file
 	fclose(fp);
-	DEBUGF("File Close:\n");
+	DEBUGF("file_io->File Close:\n");
 
 	// return success
 	return true;
@@ -489,7 +487,7 @@ bool write_string_ToFile(std::string *buf, char *file2Write, char *mode)
 	int ret = 0, errorVal;
 	// Open file with read only
 	fp = fopen(file2Write, mode );	// mode = read only
-	DEBUGF("File Open:\n");
+	DEBUGF("file_io->File Open:\n");
 
 
 	if( fp != NULL )
@@ -497,33 +495,34 @@ bool write_string_ToFile(std::string *buf, char *file2Write, char *mode)
 		// setting errno to know val
 		errno = EOK;
 
-		DEBUGF("File Writing:\n");
+		DEBUGF("file_io->File Writing:\n");
+
+		// write to file
 		ret = fwrite(buf->c_str(), sizeof(char), buf->length(), fp );
 
-		// getting errno val
+		// get errno val
 		errorVal = errno;
 
 		// error if write didnt work properly
 		if (errorVal != EOK)
 		{
-			DEBUGF("Error: %s\n", strerror(errorVal));
+			DEBUGF("file_io->Error: %s\n", strerror(errorVal));
 			return false;
 		} else if (ret <= 0)
 		{
-			DEBUGF("Error with write file info\n");
+			DEBUGF("file_io->Error with write file info\n");
 			return false;
 		}
 
 	}
 	else
 	{
-		// return failure
 		return false;
 	}
 
 	// close file
 	fclose(fp);
-	DEBUGF("File Close:\n");
+	DEBUGF("file_io->File Close:\n");
 
 	// return success
 	return true;

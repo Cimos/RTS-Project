@@ -87,10 +87,10 @@ bool writeBoneLeds(uint32_t pin, bool setTo)
 
 	if( !gpio1_base )
 	{
-		DEBUGF("Can't map Control Base Module / GPIO Base");
+		DEBUGF("boneGpio->Can't map Control Base Module / GPIO Base");
 		return false;
 	}
-	DEBUGF("I/O Port Mapping is Successful!\n");
+	DEBUGF("boneGpio->I/O Port Mapping is Successful!\n");
 
 	// Read GPIO output enable register (data direction in/out)
 	//  0 The corresponding GPIO port is configured as an output.
@@ -99,7 +99,7 @@ bool writeBoneLeds(uint32_t pin, bool setTo)
 	// READ the value of the output enable register for the
 	// I/O pins that are connected to the LEDS
 	val  = in32(gpio1_base + GPIO_OE);
-	DEBUGF("Original value of GPIO_1 output enable register: %#010x\n", val);
+	DEBUGF("boneGpio->Original value of GPIO_1 output enable register: %#010x\n", val);
 
 	// write value to output enable
 	if (setTo)
@@ -111,7 +111,7 @@ bool writeBoneLeds(uint32_t pin, bool setTo)
 
 	// confirm that GPIO_OE is set to output
 	tmp  = in32(gpio1_base + GPIO_OE);
-	DEBUGF("New value of GPIO_1 output enable register: %#010x\n", tmp);
+	DEBUGF("boneGpio->New value of GPIO_1 output enable register: %#010x\n", tmp);
 
 	if (tmp != val)
 		return false;
@@ -120,7 +120,7 @@ bool writeBoneLeds(uint32_t pin, bool setTo)
 	// TODO: is this needed?
 	munmap_device_io(gpio1_base, AM335X_GPIO_SIZE);
 
-	DEBUGF("Main Terminated...!\n");
+	DEBUGF("boneGpio->Main Terminated...!\n");
 	return true;
 }
 
@@ -147,26 +147,26 @@ bool setPinIOStatus(uint32_t pin, uint32_t pinConfig, bool inOut)	// input = 1, 
 	{
 
 	val = in32(gpio1_base + GPIO_OE);
-	DEBUGF("Original gpio i/o register val = %#010x\n", val);
+	DEBUGF("boneGpio->Original gpio i/o register val = %#010x\n", val);
 
 
 	if (inOut)
 	{
 		val |= pin;
-		DEBUGF("pin set high\n");
+		DEBUGF("boneGpio->pin set high\n");
 	}
 	else
 	{
 		val &= ~pin;
-		DEBUGF("pin set low\n");
+		DEBUGF("boneGpio->pin set low\n");
 	}
 
 	out32(gpio1_base + GPIO_OE, val); // write value to output enable for data pins
-	DEBUGF("New gpio i/o register val = %#010x\n", val);
+	DEBUGF("boneGpio->New gpio i/o register val = %#010x\n", val);
 
 
 	in32s((void*)&val, 1, control_module + pinConfig);
-	DEBUGF("Original pinmuxconfiguration for GPIO1_ = %#010x\n",val);
+	DEBUGF("boneGpio->Original pinmuxconfiguration for GPIO1_ = %#010x\n",val);
 
 	// set up pin mux for the pins we are going to use (see page 1354 of TRM)
 	volatile _CONF_MODULE_PIN pinConfigGPMC; // Pin configuration strut
@@ -183,7 +183,7 @@ bool setPinIOStatus(uint32_t pin, uint32_t pinConfig, bool inOut)	// input = 1, 
 	out32(control_module + pinConfig, pinConfigGPMC.d32);
 	in32s((void*)&val, 1, control_module + pinConfig); // Read it back
 
-	DEBUGF("New configuration register for GPIO1_ = %#010x\n", val);
+	DEBUGF("boneGpio->New configuration register for GPIO1_ = %#010x\n", val);
 
 	munmap_device_io(control_module, AM335X_CONTROL_MODULE_SIZE);
 	munmap_device_io(gpio1_base, AM335X_GPIO_SIZE);
@@ -218,7 +218,7 @@ bool writepin_gpio1(uint32_t pin,  bool setTo)
 		val |= pin;
 	else
 		val &= ~pin;
-	DEBUGF("New configuration register for GPIO1_ = %#010x\n", val);
+	DEBUGF("boneGpio->New configuration register for GPIO1_ = %#010x\n", val);
 
 	out32(gpio1_base + GPIO_DATAOUT, val); //
 

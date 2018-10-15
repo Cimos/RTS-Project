@@ -32,9 +32,9 @@
 #include "ipc_dataTypes.h"
 
 #include "debug.h"
-#include "threadTemplate.h"
 #include <sys/iomsg.h>
 #include <sys/neutrino.h>
+#include <workerThread.h>
 
 /*-----------------------------------------------------------------------------
 * Definitions

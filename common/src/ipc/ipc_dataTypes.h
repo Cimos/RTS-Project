@@ -42,17 +42,9 @@
 #define CONTROLHUB "/net/RMIT_Cimos"
 #define TRAINSTATION "/net/BBB_CimosDirect"
 
-#define MY_PULSE_CODE _PULSE_CODE_MINAVAIL+5
-
-
 #define CONTROLHUB_SERVER "/fs/ControlServer.info"
 #define TRAIN_SERVER "/fs/TrainServer.info"
 
-
-// std::string fileName= CONTROLHUB;
-// fileName.append(CONTROLHUB_SERVER);
-
-// fileName.c_str() = c style string
 
 enum clients
 {
@@ -76,7 +68,8 @@ enum trafficLightStates
     EWTG,                       // East/West Turn Green
     EWTY,                       // East/West Turn Yellow
     RED,                        // All Red
-    ERROR_1,                    // Error States 1   TODO: Define Error states
+    ERROR_1,                    // Error States 1
+								//TODO: Define Error states
     ERROR_2,                    // Error States 2
     ERROR_3,                    // Error States 3
     ERROR_4                     // Error States 4
