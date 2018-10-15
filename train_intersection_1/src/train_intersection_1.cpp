@@ -46,6 +46,7 @@
 #include "threadTemplate.h"
 #include "DelayTimer.h"
 #include "boneGpio.h"
+#include "ipc_dataTypes.h"
 
 using namespace std;
 
@@ -78,6 +79,13 @@ typedef struct
 
 typedef struct
 {
+	struct _pulse hdr; // Our real data comes after this header
+	int ClientID; // our data (unique id from client)
+	char data[2];     // our data
+} client_data;
+
+typedef struct
+{
 	struct _pulse hdr;  // Our real data comes after this header
 	char buf[IPC_BUFF_SIZE]; // Message we send back to clients to tell them the messages was processed correctly.
 } my_reply;
@@ -88,6 +96,11 @@ typedef struct
 	int PID;
 	int CHID;
 } file_params;
+
+size_t read_data(FILE *fp, file_params *p)
+{
+	return(fread(p, sizeof(file_params), 1, fp));
+}
 
 int currentState, oldCurrentState = initState;
 bool train_1_arrive_1 = false;
@@ -134,7 +147,8 @@ void keypad_cb(char keypress);
 int server();
 bool writeBoneLeds(uint32_t pin, bool setTo);
 void flashLED(int LED_num);
-void *server_cb(workBuf *work);
+//void *server_cb(workBuf *work);
+int client(int serverPID, int serverCHID);
 
 
 
@@ -146,7 +160,30 @@ int main() {
 	printf("Welcome: Road railway crossing state machine\n");
 
 	keyPadBuffer.setWorkFunction(work_cb);
-	serverWorker.setWorkFunction(server_cb);	//TODO
+	//serverWorker.setWorkFunction(server_cb);	//TODO
+
+	// connection data (you may need to edit this)
+	int serverPID = 0;	// CHANGE THIS Value to PID of the server process
+	int	serverCHID = 0;			// CHANGE THIS Value to Channel ID of the server process (typically 1)
+
+	FILE *clientFp;
+	file_params my_file;
+	//open file
+	//fp = fopen("/net/BBB_CimosDirect/fs/shawn_file", "r");
+	string fileName = CONTROLHUB;
+	fileName.append(CONTROLHUB_SERVER);
+	clientFp = fopen(fileName.c_str(), "r");
+	//read in PID and CHID from file
+	if (clientFp != NULL){
+		while (read_data(clientFp, &my_file) != 0){
+			printf("\nPID = %d", my_file.PID);
+			printf("\nCHAN ID = %d\n\n", my_file.CHID);
+			serverPID = my_file.PID;
+			serverCHID = my_file.CHID;
+		}
+
+		fclose(clientFp);
+	}
 
 
 	//Thread setup
@@ -173,6 +210,10 @@ int main() {
 	pthread_t serverThread;
 	void *serverThreadRetval;
 	pthread_create(&serverThread, NULL, server_ex, NULL);
+
+	int ret = 0;
+	ret = client(serverPID, serverCHID);
+
 
 	//server code
 	//int ret = 0;
@@ -226,12 +267,13 @@ void *work_cb(workBuf *work)
 	return NULL;
 }
 
+/*
 void *server_cb(workBuf *work)		//TODO - Do I need this for recieving? or only sending?
 {
 	serverRead = *work->data->c_str();
-	controlHubMsg.data;				//get data
+	cout << "server read:  " << serverRead << endl;
 	return NULL;
-}
+}	*/
 
 //get keypress
 void keypad_cb(char keypress){
@@ -317,6 +359,8 @@ void trainStateMachine(){
 			continue;
 		}
 
+
+
 		switch (currentState)
 		{
 
@@ -327,6 +371,7 @@ void trainStateMachine(){
 			break;
 
 		case boomgateUpState:
+			//serverWorker.doWork(&controlHubMsg.data, sizeof(controlHubMsg.data), 0);
 			if (train_1_arrive_1 || train_1_arrive_2)
 			{
 				currentState = boomAlarmState;
@@ -477,8 +522,11 @@ int server()
 	my_file.PID = serverPID;
 	int file_test = 0;
 
-	//create file to write "w" to names shawns file
-	fp = fopen("/net/BBB_CimosDirect/fs/shawn_file", "w");
+	//file location to write PID/CHID
+	string fileName = TRAINSTATION;
+	fileName.append(TRAIN_SERVER);
+	fp = fopen(fileName.c_str(), "w");
+
 
 	//write to file
 	file_test = fwrite(&my_file, sizeof(file_params), 1, fp);
@@ -594,6 +642,95 @@ int server()
 	printf("\nServer received Destroy command\n");
 	// destroyed channel before exiting
 	ChannelDestroy(chid);
+
+	return EXIT_SUCCESS;
+}
+
+/*** Client code ***/
+int client(int serverPID, int serverChID)
+{
+	printf("Client running\n");
+	client_data msg;
+	my_reply reply;
+
+	msg.ClientID = clients::TRAIN_I1;
+
+	int server_coid;
+	int index = 0;
+
+	printf("   --> Trying to connect (server) process which has a PID: %d\n", serverPID);
+	printf("   --> on channel: %d\n\n", serverChID);
+
+	// set up message passing channel
+	server_coid = ConnectAttach(ND_LOCAL_NODE, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		printf("\n    ERROR, could not connect to server!\n\n");
+		return EXIT_FAILURE;
+	}
+
+
+	printf("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
+
+	// We would have pre-defined data to stuff here
+	msg.hdr.type = 0x00;
+	msg.hdr.subtype = 0x00;
+
+	int done = 0;
+	char keyboardInput = '0';
+
+	// Do whatever work you wanted with server connection
+	//for (index=0; index < 5; index++) // send data packets
+	//{
+	// set up data packet
+	//msg.data=10+index;
+
+	while (!done){
+		while (1){
+			scanf("%c", &keyboardInput);					//wait for keyboard input
+			if (keyboardInput == 'i'){
+				msg.data[0] = keyboardInput;
+				//sprintf(buf, "%c", keyboardInput);			//put the message in a char[] so it can be sent
+				break;
+			}
+			else if (keyboardInput == 'o'){
+				msg.data[0] = keyboardInput;
+				//sprintf(buf, "%c", keyboardInput);			//put the message in a char[] so it can be sent
+				break;
+			}
+			else if (keyboardInput == 'q'){					// press q to close queue and quit
+				//sprintf(buf, "%c", keyboardInput);
+				msg.data[0] = keyboardInput;
+				done = 1;
+				break;
+			}
+		}
+		keyboardInput = '0';
+
+
+		// the data we are sending is in msg.data
+		//printf("Client (ID:%d), sending data packet with the  value: %c \n", msg.ClientID, msg.data[0]);
+		cout << "client " << msg.ClientID << "sending data packet value: " << msg.data[0] <<endl;
+		fflush(stdout);
+
+		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+		{
+			printf(" Error data '%d' NOT sent to server\n", msg.data[0]);
+			// maybe we did not get a reply from the server
+			break;
+		}
+		else
+		{ // now process the reply
+			//printf("   -->Reply is: '%s'\n", reply.buf);
+		}
+
+	}//end while
+	//sleep(5);	// wait a few seconds before sending the next data packet
+	//}
+
+	// Close the connection
+	printf("\n Sending message to server to tell it to close the connection\n");
+	ConnectDetach(server_coid);
 
 	return EXIT_SUCCESS;
 }

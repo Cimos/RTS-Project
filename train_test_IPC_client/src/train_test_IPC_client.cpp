@@ -3,8 +3,19 @@
 #include <errno.h>
 #include <sys/iofunc.h>
 #include <sys/netmgr.h>
+#include <string.h>
+#include <unistd.h>
+#include <iostream>
+
+
+//#include "ipc_dataTypes.h"
 
 #define BUF_SIZE 100
+#define TRAINSTATION "/net/BBB_CimosDirect/tmp/"
+#define TRAIN_SERVER "TrainServer.info"
+
+
+using namespace std;
 
 typedef struct
 {
@@ -29,6 +40,15 @@ size_t read_data(FILE *fp, file_params *p)
 {
 	return(fread(p, sizeof(file_params), 1, fp));
 }
+
+enum clients
+{
+	DEFAULT_CLT = 0,
+	TRAFFIC_L1,
+	TRAFFIC_L2,
+	TRAIN_I1,
+	CONTROL_H1
+};
 
 // prototypes
 int client(int serverPID, int serverCHID);
@@ -59,7 +79,11 @@ int main(int argc, char *argv[])
 	file_params my_file;
 
 	//open file
-	fp = fopen("/net/BBB_CimosDirect/fs/shawn_file", "r");
+	//fp = fopen("/net/BBB_CimosDirect/fs/shawn_file", "r");
+
+	string fileName = TRAINSTATION;
+	fileName.append(TRAIN_SERVER);
+	fp = fopen(fileName.c_str(), "r");
 
 	//read in PID and CHID from file
 	if (fp != NULL){
@@ -89,7 +113,7 @@ int client(int serverPID, int serverChID)
 	my_data msg;
 	my_reply reply;
 
-	msg.ClientID = 999;
+	msg.ClientID = clients::TRAIN_I1;
 
 	int server_coid;
 	int index = 0;
