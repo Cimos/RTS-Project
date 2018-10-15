@@ -11,8 +11,8 @@
 //#include "ipc_dataTypes.h"
 
 #define BUF_SIZE 100
-#define TRAINSTATION "/net/BBB_CimosDirect/tmp/"
-#define TRAIN_SERVER "TrainServer.info"
+#define TRAINSTATION "/net/BBB_CimosDirect"
+#define TRAIN_SERVER "/fs/TrainServer.info"
 
 
 using namespace std;
@@ -167,7 +167,6 @@ int client(int serverPID, int serverChID)
 		}
 		keyboardInput = '0';
 
-
 		// the data we are sending is in msg.data
 		printf("Client (ID:%d), sending data packet with the  value: %c \n", msg.ClientID, msg.data[0]);
 		fflush(stdout);
@@ -180,7 +179,7 @@ int client(int serverPID, int serverChID)
 		}
 		else
 		{ // now process the reply
-			//printf("   -->Reply is: '%s'\n", reply.buf);
+			printf("   -->Reply is: '%s'\n", reply.buf);
 		}
 
 	}//end while

@@ -3,7 +3,7 @@
     <data>
         <item id="com.qnx.tools.ide.target">
             <qconnport value="8000"/>
-            <qconnguid value="4f39026f-b291-4432-af88-b6d0563bf42c"/>
+            <qconnguid value="3a715f3a-e428-42de-b23d-e1b059e90349"/>
             <qconnostype value="nto"/>
             <project>
                 <name value="BBB_10"/>

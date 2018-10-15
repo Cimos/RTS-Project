@@ -71,6 +71,7 @@ enum states{
 	boomgateDownState
 };
 
+
 typedef struct
 {
 	struct _pulse hdr; // Our real data comes after this header
@@ -116,7 +117,8 @@ int keepLooping = 1;
 char lastSensorInputReset = '0';
 WorkerThread keyPadBuffer;
 my_data controlHubMsg;
-my_data *pmsg;
+//_data controlHubMsg;
+//my_data *pmsg;
 bool LED_retval = false;
 WorkerThread serverWorker;
 char serverRead = '0';
@@ -124,6 +126,8 @@ char serverRead = '0';
 // connection data (you may need to edit this)
 int HUBserverPID = 0;	// CHANGE THIS Value to PID of the server process
 int	HUBserverCHID = 0;			// CHANGE THIS Value to Channel ID of the server process (typically 1)
+
+int trainStateToSend = trainStationStates::DEFAULT_TSS;
 
 
 //timer setup
@@ -177,10 +181,6 @@ int main() {
 	//fp = fopen("/net/BBB_CimosDirect/fs/shawn_file", "r");
 
 	//clientFp = fopen(fileName.c_str(), "r");
-
-
-
-
 
 //	//read in PID and CHID from file
 //	if (clientFp != NULL){
@@ -263,7 +263,6 @@ void *server_ex(void *data){
 
 void *client_ex(void *data){
 	int ret = 0;
-
 	int nd = read_pid_chid_FromFile( &HUBserverPID, &HUBserverCHID,CONTROLHUB, CONTROLHUB_SERVER);
 	ret = client(HUBserverPID, HUBserverCHID, nd);
 	return 0;
@@ -378,8 +377,6 @@ void trainStateMachine(){
 			continue;
 		}
 
-
-
 		switch (currentState)
 		{
 
@@ -390,13 +387,13 @@ void trainStateMachine(){
 			break;
 
 		case boomgateUpState:
-			//serverWorker.doWork(&controlHubMsg.data, sizeof(controlHubMsg.data), 0);
 			if (train_1_arrive_1 || train_1_arrive_2)
 			{
 				currentState = boomAlarmState;
-
+				trainStateToSend = trainStationStates::T1_ARIVING;
 				if(!train_1_arrive_1 || !train_1_arrive_2)
 				{
+					trainStateToSend = trainStationStates::T1_SENSOR_ERROR;
 					cout << "Train 1 In-Bound sensor fault" << endl;	//TODO send sensor fault message here
 				}
 				lastSensorInput = lastSensorInputReset;
@@ -404,9 +401,11 @@ void trainStateMachine(){
 			else if(train_2_arrive_1 || train_2_arrive_2)
 			{
 				currentState = boomAlarmState;
+				trainStateToSend = trainStationStates::T2_ARIVING;
 				inboundSensorFaultTimer.createTimer();
 				if(!train_2_arrive_1 && !train_2_arrive_2)
 				{
+					trainStateToSend = trainStationStates::T1_SENSOR_ERROR;
 					cout << "Train 2 In-Bound sensor fault" << endl;	//TODO send sensor message fault here
 				}
 				lastSensorInput = lastSensorInputReset;
@@ -420,6 +419,7 @@ void trainStateMachine(){
 			}
 			else{
 				currentState = boomgateUpState;
+				trainStateToSend = trainStationStates::DEFAULT_TSS;
 				cout << "BOOMGATE UP" << endl << endl;
 			}
 			break;
@@ -430,6 +430,7 @@ void trainStateMachine(){
 			boomGateTimer.createTimer();
 			if((train_1_boom_down == false) || (train_2_boom_down == false))
 			{
+				trainStateToSend = trainStationStates::BOOM_GATE_ERROR;
 				cout << "Boomgate DOWN FAULT" << endl;			//TODO send fault message
 				LED_retval = writeBoneLeds(LED0, false);		//turn on in bound train stop lights
 				LED_retval = writeBoneLeds(LED1, false);
@@ -445,6 +446,7 @@ void trainStateMachine(){
 			break;
 
 		case boomgateDownState:
+			trainStateToSend = trainStationStates::BOOM_GATE_DOWN;
 			if( controlHubMsg.data == 'o')
 			{
 				hubCommand = false;
@@ -456,6 +458,7 @@ void trainStateMachine(){
 				boomGateTimer.createTimer();
 				if((train_1_boom_down) || (train_2_boom_down))
 				{
+					trainStateToSend = trainStationStates::BOOM_GATE_ERROR;
 					cout << "Boomgate UP FAULT" << endl;		//TODO send fault message
 					while(train_1_boom_down || train_2_boom_down)
 					{
@@ -464,10 +467,12 @@ void trainStateMachine(){
 				}												//TODO turn on in bound train stop lights
 				lastSensorInput = lastSensorInputReset;
 				LED_retval = writeBoneLeds(LED2, true);			//turn off car stop lights
+				trainStateToSend = trainStationStates::DEFAULT_TSS;
 				break;
 			}
 			else
 			{
+				trainStateToSend = trainStationStates::BOOM_GATE_DOWN;
 				currentState = boomgateDownState;
 				cout << "BOOMGATE DOWN!" << endl;
 				break;
@@ -541,16 +546,22 @@ int server()
 	my_file.PID = serverPID;
 	int file_test = 0;
 
-	//file location to write PID/CHID
-	string fileName = TRAINSTATION;
-	fileName.append(TRAIN_SERVER);
-	fp = fopen(fileName.c_str(), "w");
 
+	//file location to write PID/CHID
+	//string fileName = TRAINSTATION;
+	//fileName.append("/fs/TrainServer.info");
+	//fp = fopen(fileName.c_str(), "w");
+
+	//fp = fopen("/net/BBB_CimosDirect/fs/TrainServer.info", "w");
+
+	//fp = fopen("/net/BBB_CimosDirect/fs/shawn_file", "w");
+
+	write_pid_chid_ToFile( my_file.PID, my_file.CHID, "/net/BBB_CimosDirect/fs/TrainServer.info", "w");
 
 	//write to file
 	//file_test = fwrite(&my_file, sizeof(file_params), 1, fp);
 
-	fclose(fp);
+	//fclose(fp);
 
 
 	//**************************************************************************************************
@@ -558,7 +569,7 @@ int server()
 	int rcvid = 0, msgnum = 0;  	// no message received yet
 	int Stay_alive = 0, living = 0;	// server stays running (ignores _PULSE_CODE_DISCONNECT request)
 
-	my_reply replymsg; 			// replymsg structure for sending back to client
+	_reply replymsg; 			// replymsg structure for sending back to client
 	replymsg.hdr.type = 0x01;
 	replymsg.hdr.subtype = 0x00;
 
@@ -649,7 +660,11 @@ int server()
 			//sleep(1); // Delay the reply by a second (just for demonstration purposes)
 
 			//printf("\n    -----> replying with: '%s'\n",replymsg.buf);
-			MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
+			bool train = true;
+
+			//MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
+
+			MsgReply(rcvid, EOK, &train, sizeof(train));
 		}
 		else
 		{
@@ -669,9 +684,10 @@ int server()
 int client(int serverPID, int serverChID, int nd)
 {
 	printf("Client running\n");
-	client_data msg;
-	_reply reply;
+	//client_data msg;
+	//_reply reply;
 
+	_data reply;
 	_data HUBmsg;
 
 	//msg.ClientID = clients::TRAIN_I1;
@@ -732,14 +748,8 @@ int client(int serverPID, int serverChID, int nd)
 			}
 		}
 		*/
-
-		HUBmsg.data.lightTiming.ewTurn = 0;
-		HUBmsg.data.lightTiming.nsStraight = 0;
-		HUBmsg.data.lightTiming.nsTurn = 0;
-		HUBmsg.data.lightTiming.yellow = 0;
-		HUBmsg.data.lightTiming.ewStraight = 0;
-
-
+		sleep(1);
+		HUBmsg.train_data.currentState = (trainStationStates)trainStateToSend;
 
 		// the data we are sending is in msg.data
 		//printf("Client (ID:%d), sending data packet with the  value: %c \n", msg.ClientID, msg.data[0]);
@@ -756,7 +766,8 @@ int client(int serverPID, int serverChID, int nd)
 		}
 		else
 		{ // now process the reply
-			//printf("   -->Reply is: '%s'\n", reply.buf);
+			//printf("   -->Reply is: '%s'\n", reply.train_data.currentState);
+			cout << "Reply: " << reply.train_data.currentState << endl;
 		}
 
 	}//end while
