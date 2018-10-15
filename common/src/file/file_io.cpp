@@ -119,7 +119,7 @@ bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char *mode)
  *	@breif: 											*
  *	@return:returns true or false for success			*
  * ---------------------------------------------------	*/
-bool read_pid_chid_FromFile(int *pid, int *chid, char *file2Read)
+bool read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
 {
 	FILE *fp;
 	char line[255] = {};

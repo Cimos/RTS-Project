@@ -19,7 +19,6 @@
 #include "../FT800/FT800.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
 
 extern int errno;
 

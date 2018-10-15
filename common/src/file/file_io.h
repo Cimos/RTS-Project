@@ -55,7 +55,7 @@ bool checkIfFileExists(const char *fileName, int mode = F_OK | R_OK | W_OK);
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-bool read_pid_chid_FromFile(int *pid, int *chid, char *file2Read);
+bool read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read);
 
 
 /* ----------------------------------------------------	*

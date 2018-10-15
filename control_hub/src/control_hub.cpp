@@ -198,24 +198,35 @@ int printMenu(int mode);
 *---------------------------------------------------------------------------*/
 int main(void)		//TODO: set date and time
 {
-	//init();
 	int i =25 ;
 
+	std::string tmp(STARTUP_MSG);
+	int PID = 0;
+	int CHID = 0;
 
-	std::cout << fileName << std::endl;
-	//splash_screen2();
+
+	std::string tt(CONTROLHUB);
+	tt.append(CONTROLHUB_SERVER);
+	read_pid_chid_FromFile(&PID, &CHID, tt.c_str());
+
+	std::cout << "PID=" << PID << std::endl;
+	std::cout << "CHID=" << CHID << std::endl;
+
+
+	init();
+
 	sleep(5);
 
 
 //	char input = printMenu(1);
+	//splash_screen2();
 
 
 // SCREEN:
 
 	while(1)
 	{
-		Screen_animations(i);
-		i = i + 4;
+
 	}
 
 
@@ -329,9 +340,9 @@ void init(void)
 	std::string tmp(STARTUP_MSG);
 	write_string_ToFile(&tmp, CHLOG, "a+");
 
-	//serverInit();
+	serverInit();
 	//keypadInit(5);
-	FT800_Init();
+	//FT800_Init();
 
 }
 
@@ -381,7 +392,6 @@ void serverInit(void)
 	Lock(self.server.Mtx);
 	DEBUGF("serverInit()->Initializing Server:\n");
 	threadInit(&self.server.serverThread);
-
 
 	self.server.serverPID = getpid(); 		// get server process ID
 	self.server.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
@@ -438,7 +448,7 @@ void *serverReceiver(void *appData)
 {
 	struct self* self = (struct self*)appData;
 
-	pthread_setname_np(pthread_self(), 	self->server.threadName);
+	pthread_setname_np(pthread_self(),self->server.threadName);
 
 	int rcvid=0, msgnum=0;  	// no message received yet
 	int Stay_alive=0;
@@ -449,7 +459,6 @@ void *serverReceiver(void *appData)
 
 	replymsg.hdr.type = 0x01;
 	replymsg.hdr.subtype = 0x00;
-
 
     while (living)
     {
@@ -556,6 +565,8 @@ void *serverReceiver(void *appData)
 void *serverSender(workBuf *work)
 {
 	Lock(self.server.Mtx);
+    rcvid = MsgSend(chid, &msg, sizeof(msg), NULL);
+
 
 	Unlock(self.server.Mtx);
 
