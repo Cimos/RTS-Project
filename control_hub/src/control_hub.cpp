@@ -204,14 +204,14 @@ int main(void)		//TODO: set date and time
 	int PID = 0;
 	int CHID = 0;
 
+int fd= 0 ;
+	std::string tt(CONTROLHUB);
+	tt.append(CONTROLHUB_SERVER);
+	fd = read_pid_chid_FromFile(&PID, &CHID, tt.c_str());
 
-//	std::string tt(CONTROLHUB);
-//	tt.append(CONTROLHUB_SERVER);
-//	read_pid_chid_FromFile(&PID, &CHID, tt.c_str());
-//
-//	std::cout << "PID=" << PID << std::endl;
-//	std::cout << "CHID=" << CHID << std::endl;
-//
+	std::cout << "PID=" << PID << std::endl;
+	std::cout << "CHID=" << CHID << std::endl;
+
 
 	init();
 

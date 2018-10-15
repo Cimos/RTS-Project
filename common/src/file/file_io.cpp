@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <fcntl.h>
 //#include <string.h>	// used for memcopy
 
 /*-----------------------------------------------------------------------------
@@ -119,21 +120,22 @@ bool write_pid_chid_ToFile(int pid, int chid, char *file2Write2, char *mode)
  *	@breif: 											*
  *	@return:returns true or false for success			*
  * ---------------------------------------------------	*/
-FILE read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
+int read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
 {
-	FILE *fp;
+	int fd;
 	char line[255] = {};
 	int pos1=0,pos2=0,pos3=0,pos4=0;
 
 	// Open file with read only
-	fp = fopen(file2Read, "r" );	// mode = read only
+	fd = open(file2Read, O_RDWR );	// mode = read only
 	DEBUGF("File Open:\n");
 
 
-	if( fp != NULL )
+	if( fd != NULL )
 	{
 		DEBUGF("File Reading:\n");
-		while( fread( &line, sizeof(char), sizeof(line), fp ) != 0 )
+		extern ssize_t read(int __fildes, void *__buffer, size_t __len);
+		while(read(fd,  &line,  sizeof(line)) != 0 )
 		{
 			DEBUGF("id=%s\n", line );
 		}
@@ -144,7 +146,7 @@ FILE read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
 	}
 
 	// close file
-	fclose(fp);
+	close(fd);
 	DEBUGF("File Close:\n");
 
 	// using strings to easily find pid cid
@@ -174,7 +176,7 @@ FILE read_pid_chid_FromFile(int *pid, int *chid, const char *file2Read)
 	*pid = atoi(str.substr(pos1+sizeof("PID=")-1, pos2).c_str());
 	*chid = atoi(str.substr(pos3+sizeof("CID=")-1, pos4).c_str());
 
-	return FILE;
+	return fd;
 }
 
 
