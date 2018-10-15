@@ -93,10 +93,6 @@ enum trainStationStates
     T2_SENSOR_ERROR             // Line 2 Train Arriving Sensor Error
 };
 
-typedef struct 
-{
-    trainStationStates currentState;
-}trainMsg;
 
 
 typedef struct
@@ -115,6 +111,10 @@ typedef struct _controlHubTointersection
     trafficLightStates currentState;
 }controler2Intersection;
 
+typedef struct controler2Train
+{
+    trainStationStates currentState;
+};
 
 typedef struct
 {
@@ -129,12 +129,12 @@ typedef struct
 }systemTimeAlignment;
 
 
-
 typedef struct
 {
 	struct _pulse hdr; // Our real data comes after this header
 	int ClientID; // our data (unique id from client)
-	controler2Intersection data;     // our data
+	controler2Intersection inter_data;
+	controler2Train train_data;
 } _data;
 
 typedef struct

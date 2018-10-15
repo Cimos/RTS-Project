@@ -523,7 +523,7 @@ void *serverReceiver(void *appData)
                 continue;	// go back to top of while loop
             }
 
-            DEBUGF("Server->logging received message");
+            DEBUGF("Server->logging received message\n");
         	logData(&msg);
 
 
@@ -532,17 +532,17 @@ void *serverReceiver(void *appData)
         	{
         	case clients::TRAFFIC_L1:
         		//updateTrafficLight1Status();	// ie screen or gui
-        		DEBUGF("Server->message received from Traffic light 1");
+        		DEBUGF("Server->message received from Traffic light 1\n");
 
         		break;
         	case clients::TRAFFIC_L2:
         		//updateTrafficLight2Status();	// ie screen or gui
-        		DEBUGF("Server->message received from Traffic light 2");
+        		DEBUGF("Server->message received from Traffic light 2\n");
 
         		break;
         	case clients::TRAIN_I1:
         		//updateTrainIntersection1Status();	// ie screen or gui
-        		DEBUGF("Server->message received from Train Station 1");
+        		DEBUGF("Server->message received from Train Station 1\n");
 
         		break;
         	default:
