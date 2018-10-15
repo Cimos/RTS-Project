@@ -26,7 +26,7 @@
 * Definitions
 *---------------------------------------------------------------------------*/
 #define STARTUP_MSG "\n----------------------------------------------------------\nControl Hub Restarted:\n----------------------------------------------------------\n\n"
-#define CHLOG "controlHub.log"
+#define CHLOG "/fs/controlHub.log"
 #define MESSAGESIZE 12
 #define BUF_SIZE 9
 

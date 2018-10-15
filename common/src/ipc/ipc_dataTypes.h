@@ -42,10 +42,11 @@
 #define CONTROLHUB "/net/RMIT_Cimos"
 #define TRAINSTATION "/net/BBB_CimosDirect"
 
+#define MY_PULSE_CODE _PULSE_CODE_MINAVAIL+5
 
 
 #define CONTROLHUB_SERVER "/fs/ControlServer.info"
-#define TRAIN_SERVER "TrainServer.info"
+#define TRAIN_SERVER "/fs/TrainServer.info"
 
 
 // std::string fileName= CONTROLHUB;
@@ -90,7 +91,11 @@ enum trainStationStates
     T2_DEPARTING,               // Line 2 Train Departing
     BOOM_GATE_ERROR,            // Line 1+2 Boom Gate Error
     T1_SENSOR_ERROR,            // Line 1 Train Arriving Sensor Error
-    T2_SENSOR_ERROR             // Line 2 Train Arriving Sensor Error
+    T2_SENSOR_ERROR,             // Line 2 Train Arriving Sensor Error
+	BOOM_GATE_UP,
+	BOOM_GATE_DOWN,
+	REQUEST_BOOM_GATE_UP,
+	REQUEST_BOOM_GATE_DOWN
 };
 
 
@@ -119,7 +124,7 @@ typedef struct controler2Train
 typedef struct
 {
     time_t time;				// Gets the time
-	struct tm currentTime;	// Required time_t to get a full date and time
+	struct tm currentTime;		// Required time_t to get a full date and time
 
     time_t morningPeakStart;
     time_t morningPeakFinish;
@@ -141,6 +146,8 @@ typedef struct
 {
 	struct _pulse hdr; // Our real data comes after this header
 	int ClientID; // our data (unique id from client)
+	controler2Intersection inter_data;
+	controler2Train train_data;
 } _reply;
 
 

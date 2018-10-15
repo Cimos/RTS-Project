@@ -16,6 +16,7 @@
 *---------------------------------------------------------------------------*/
 
 #include "control_hub.h"
+#include <sys/iomsg.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,6 +144,11 @@ struct self
 		int living = 1;
 		int serverPID = -1;
 		int serverCHID = -1;
+//		_data msg;			// received msg
+//		_reply replymsg;	// replying msg
+		trafficLightStates T1 =trafficLightStates::DEFAULT_TLS;
+		trafficLightStates T2 =trafficLightStates::DEFAULT_TLS;
+		trainStationStates I1 =trainStationStates::DEFAULT_TSS;
 
 	}server;
 
@@ -168,7 +174,7 @@ void *serverReceiver(void *chid);
 void *serverSender(workBuf *work);
 void clientDisconnect(int server_coid);
 _reply* clientSendMsg(_data* msg, _reply *reply);
-int clientConnect(int serverPID,  int serverChID);
+int clientConnect(int serverPID,  int serverChID, int nodeDescriptor);
 
 //init different services
 void threadInit(_thread *th);
@@ -184,8 +190,9 @@ void keypad_cb(char keyPress);
 void *kpWork(workBuf *work);
 
 //logging
-void logData(_data *toLog);
-void logData(_reply *toLog);
+void logTrainData(_data *toLog);
+void logIntersectionData(_data *toLog);
+//void logData(_reply *toLog);
 void logKeyPress(char key);
 
 // printing menu
@@ -197,23 +204,19 @@ int printMenu(int mode);
 *---------------------------------------------------------------------------*/
 int main(void)		//TODO: set date and time
 {
-	int i =25 ;
-
 	std::string tmp(STARTUP_MSG);
 	int PID = 0;
 	int CHID = 0;
-
-	int fd= 0 ;
 
 	init();
 
 	std::string tt(CONTROLHUB);
 	tt.append(CONTROLHUB_SERVER);
-	fd = read_pid_chid_FromFile(&PID, &CHID, CONTROLHUB,CONTROLHUB_SERVER);
 
+
+	std::cout << "Node Descriptor=" << read_pid_chid_FromFile(&PID, &CHID, CONTROLHUB,CONTROLHUB_SERVER) << std::endl;
 	std::cout << "PID=" << PID << std::endl;
 	std::cout << "CHID=" << CHID << std::endl;
-	std::cout << "Node Descriptor=" << fd << std::endl;
 
 
 //	char input = printMenu(1);
@@ -238,7 +241,7 @@ int main(void)		//TODO: set date and time
 * Local Function Definitions
 *---------------------------------------------------------------------------*/
 /* ----------------------------------------------------	*
- *	@kpWork Implementation:							*
+ *	@kpWork Implementation:								*
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
@@ -253,13 +256,15 @@ void *kpWork(workBuf *work)
 	logKeyPress(tmp);
 
 	//self.server.server.doWork(buf, size, mode)
+	Lock(self.server.Mtx);
+
 	switch(tmp)
 	{
 	case '1':
-		//RequestBoomGateChange(DOWN);
+//		self.server.replymsg.train_data.currentState = trainStationStates::BOOM_GATE_UP;
 		break;
 	case '2':
-		//RequestBoomGateChange(UP);
+//		self.server.replymsg.train_data.currentState = trainStationStates::BOOM_GATE_DOWN;
 		break;
 	case '3':
 		//UpdateNetworkTime();
@@ -306,6 +311,7 @@ void *kpWork(workBuf *work)
 		//Error();
 		;
 	}
+	Unlock(self.server.Mtx);
 
 
 	return NULL;
@@ -445,23 +451,27 @@ void threadInit(_thread *th)
 void *serverReceiver(void *appData)
 {
 	struct self* self = (struct self*)appData;
+	_data msg;// = &self->server.msg;
+	_reply replymsg;// = &self->server.replymsg;
 
-	pthread_setname_np(pthread_self(),self->server.threadName);
+
+	pthread_setname_np(pthread_self(),self->server.threadName);	//TODO: check this works
 
 	int rcvid=0, msgnum=0;  	// no message received yet
 	int Stay_alive=0;
 	int *living = &self->server.living;	// stay alive and living for controlling the server status
-    int read = 0, chid = self->server.serverCHID;
+    int chid = self->server.serverCHID;
     int error = 0;
-    _data msg;			// received msg
-	_reply replymsg;	// replying msg
+
 
 	replymsg.hdr.type = 0x01;
 	replymsg.hdr.subtype = 0x00;
 
     while (living)
     {
-        rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+    	rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+
+
         DEBUGF("Server->Message Received:\n");
 
         if (rcvid == -1) {
@@ -524,8 +534,8 @@ void *serverReceiver(void *appData)
             }
 
             DEBUGF("Server->logging received message\n");
-        	logData(&msg);
 
+    		Lock(self->server.Mtx);
 
         	// TODO: place this into a control function that does all the work
         	switch(msg.ClientID)
@@ -533,29 +543,37 @@ void *serverReceiver(void *appData)
         	case clients::TRAFFIC_L1:
         		//updateTrafficLight1Status();	// ie screen or gui
         		DEBUGF("Server->message received from Traffic light 1\n");
+        		logIntersectionData(&msg);
+        		replymsg.inter_data.currentState = trafficLightStates::DEFAULT_;
+                MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
+        		replymsg.inter_data.currentState = trafficLightStates::DEFAULT_TLS;
 
         		break;
         	case clients::TRAFFIC_L2:
         		//updateTrafficLight2Status();	// ie screen or gui
         		DEBUGF("Server->message received from Traffic light 2\n");
+        		logIntersectionData(&msg);
+        		replymsg.inter_data.currentState = self->server.T2;
+                MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
+        		replymsg.inter_data.currentState = trafficLightStates::DEFAULT_TLS;
 
         		break;
         	case clients::TRAIN_I1:
         		//updateTrainIntersection1Status();	// ie screen or gui
         		DEBUGF("Server->message received from Train Station 1\n");
+        		logTrainData(&msg);
+        		replymsg.train_data.currentState = self->server.I1;
+                MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
+        		replymsg.inter_data.currentState = trainStationStates::DEFAULT_TSS;
 
         		break;
         	default:
         		break;
         	}
-        	fflush(stdout);
-            //replymsg.buf[0] = read + '0';
+    		Unlock(self->server.Mtx);
 
-            DEBUGF("Server->received data packet from client (ID:%d)\n", msg.ClientID);
-            fflush(stdout);
 
-           //DEBUGF("Server->replying with: '%s'\n",replymsg.buf);
-            MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
+
         }
         else
         {
@@ -591,11 +609,11 @@ void *serverSender(workBuf *work)
 
 
 /* ----------------------------------------------------	*
- *	@logData Implementation:							*
+ *	@logIntersectionData Implementation:				*
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-void logData(_data *toLog)
+void logIntersectionData(_data *toLog)
 {
 	std::string toLogData;
 	Lock(self.tm.Mtx)
@@ -608,15 +626,15 @@ void logData(_data *toLog)
 	toLogData.append(":Sending->ClientID=");
 	toLogData.append(std::to_string(toLog->ClientID));
 	toLogData.append(",nsStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.nsStraight));
+	toLogData.append(std::to_string(toLog->inter_data.lightTiming.nsStraight));
 	toLogData.append(",nsTurn=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.nsTurn));
+	toLogData.append(std::to_string(toLog->inter_data.lightTiming.nsTurn));
 	toLogData.append(",ewStright=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.ewStraight));
+	toLogData.append(std::to_string(toLog->inter_data.lightTiming.ewStraight));
 	toLogData.append(",ewTurn=");
-	toLogData.append(std::to_string(toLog->data.lightTiming.ewTurn));
+	toLogData.append(std::to_string(toLog->inter_data.lightTiming.ewTurn));
 	toLogData.append(",currentState=");
-	toLogData.append(std::to_string(toLog->data.currentState));
+	toLogData.append(std::to_string(toLog->inter_data.currentState));
 	toLogData.append(";\n");
 	write_string_ToFile(&toLogData, CHLOG, "a+");
 	Unlock(self.tm.Mtx)
@@ -624,26 +642,51 @@ void logData(_data *toLog)
 
 
 /* ----------------------------------------------------	*
- *	@server Implementation:								*
+ *	@logTrainData Implementation:						*
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-void logData(_reply *toLog)
+void logTrainData(_data *toLog)
 {
 	std::string toLogData;
 	Lock(self.tm.Mtx)
 	self.tm.time = time(NULL);
 	self.tm.currentTime = localtime(&self.tm.time);
 	std::string time(asctime(self.tm.currentTime));
-	Unlock(self.tm.Mtx)
 
 	// creating cvs formate with time and date stamp
 	toLogData.append(time.substr(0,time.length()-1));
-	toLogData.append(":Reply->ClientID=");
+	toLogData.append(":Sending->ClientID=");
+	toLogData.append(std::to_string(toLog->ClientID));
+	toLogData.append(",trainState=");
+	toLogData.append(std::to_string(toLog->train_data.currentState));
 	toLogData.append(";\n");
 	write_string_ToFile(&toLogData, CHLOG, "a+");
 	Unlock(self.tm.Mtx)
 }
+
+
+/* ----------------------------------------------------	*
+ *	@logData Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+//void logData(_reply *toLog)
+//{
+//	std::string toLogData;
+//	Lock(self.tm.Mtx)
+//	self.tm.time = time(NULL);
+//	self.tm.currentTime = localtime(&self.tm.time);
+//	std::string time(asctime(self.tm.currentTime));
+//	Unlock(self.tm.Mtx)
+//
+//	// creating cvs formate with time and date stamp
+//	toLogData.append(time.substr(0,time.length()-1));
+//	toLogData.append(":Reply->ClientID=");
+//	toLogData.append(";\n");
+//	write_string_ToFile(&toLogData, CHLOG, "a+");
+//	Unlock(self.tm.Mtx)
+//}
 
 
 /* ----------------------------------------------------	*
@@ -696,7 +739,19 @@ int printMenu(int mode)
  *	@brief:												*
  *	@return:	server_coid								*
  * ---------------------------------------------------	*/
-int clientConnect(int serverPID,  int serverChID)
+void clientinit()
+{
+
+}
+
+
+
+/* ----------------------------------------------------	*
+ *	@printMenu Implementation:							*
+ *	@brief:												*
+ *	@return:	server_coid								*
+ * ---------------------------------------------------	*/
+int clientConnect(int serverPID,  int serverChID, int nodeDescriptor)
 {
     int server_coid;
 
@@ -704,7 +759,7 @@ int clientConnect(int serverPID,  int serverChID)
     DEBUGF("\t--> on channel: %d\n", serverChID);
 
 	// set up message passing channel
-    server_coid = ConnectAttach(ND_LOCAL_NODE, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+    server_coid = ConnectAttach(nodeDescriptor, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
 	if (server_coid == -1)
 	{
 		DEBUGF("\n\tERROR, could not connect to server!\n\n");
