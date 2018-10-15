@@ -47,6 +47,7 @@
 #include "DelayTimer.h"
 #include "boneGpio.h"
 #include "ipc_dataTypes.h"
+#include "file_io.h"
 
 using namespace std;
 
@@ -120,6 +121,10 @@ bool LED_retval = false;
 WorkerThread serverWorker;
 char serverRead = '0';
 
+// connection data (you may need to edit this)
+int HUBserverPID = 0;	// CHANGE THIS Value to PID of the server process
+int	HUBserverCHID = 0;			// CHANGE THIS Value to Channel ID of the server process (typically 1)
+
 
 //timer setup
 DelayTimer boomGateTimer(true, 0, 3, 0, 3);
@@ -133,6 +138,7 @@ DelayTimer flashLEDTimer(true, 1, 4500000000, 1, 4500000000);
 *---------------------------------------------------------------------------*/
 void *trainStateMachine_ex(void *data);
 void *server_ex(void *data);
+void *client_ex(void *data);
 
 
 /*-----------------------------------------------------------------------------
@@ -148,7 +154,9 @@ int server();
 bool writeBoneLeds(uint32_t pin, bool setTo);
 void flashLED(int LED_num);
 //void *server_cb(workBuf *work);
-int client(int serverPID, int serverCHID);
+int client(int serverPID, int serverChID, int nd);
+
+
 
 
 
@@ -162,28 +170,29 @@ int main() {
 	keyPadBuffer.setWorkFunction(work_cb);
 	//serverWorker.setWorkFunction(server_cb);	//TODO
 
-	// connection data (you may need to edit this)
-	int serverPID = 0;	// CHANGE THIS Value to PID of the server process
-	int	serverCHID = 0;			// CHANGE THIS Value to Channel ID of the server process (typically 1)
 
 	FILE *clientFp;
 	file_params my_file;
 	//open file
 	//fp = fopen("/net/BBB_CimosDirect/fs/shawn_file", "r");
-	string fileName = CONTROLHUB;
-	fileName.append(CONTROLHUB_SERVER);
-	clientFp = fopen(fileName.c_str(), "r");
-	//read in PID and CHID from file
-	if (clientFp != NULL){
-		while (read_data(clientFp, &my_file) != 0){
-			printf("\nPID = %d", my_file.PID);
-			printf("\nCHAN ID = %d\n\n", my_file.CHID);
-			serverPID = my_file.PID;
-			serverCHID = my_file.CHID;
-		}
 
-		fclose(clientFp);
-	}
+	//clientFp = fopen(fileName.c_str(), "r");
+
+
+
+
+
+//	//read in PID and CHID from file
+//	if (clientFp != NULL){
+//		while (read_data(clientFp, &my_file) != 0){
+//			printf("\nPID = %d", my_file.PID);
+//			printf("\nCHAN ID = %d\n\n", my_file.CHID);
+//			serverPID = my_file.PID;
+//			serverCHID = my_file.CHID;
+//		}
+//
+//		fclose(clientFp);
+//	}
 
 
 	//Thread setup
@@ -211,8 +220,9 @@ int main() {
 	void *serverThreadRetval;
 	pthread_create(&serverThread, NULL, server_ex, NULL);
 
-	int ret = 0;
-	ret = client(serverPID, serverCHID);
+	pthread_t clientThread;
+	void *clientThreadRetval;
+	pthread_create(&clientThread, NULL, client_ex, NULL);
 
 
 	//server code
@@ -222,6 +232,7 @@ int main() {
 	//close threads
 	pthread_join(SMThread, &SMThreadRetval);
 	pthread_join(serverThread, &serverThreadRetval);
+	pthread_join(clientThread, &clientThreadRetval);
 
 
 	printf("\nMain Terminating...\n");
@@ -247,6 +258,14 @@ void *server_ex(void *data){
 	cout << "starting server thread" << endl;
 	int ret = 0;
 	ret = server();
+	return 0;
+}
+
+void *client_ex(void *data){
+	int ret = 0;
+
+	int nd = read_pid_chid_FromFile( &HUBserverPID, &HUBserverCHID,CONTROLHUB, CONTROLHUB_SERVER);
+	ret = client(HUBserverPID, HUBserverCHID, nd);
 	return 0;
 }
 
@@ -529,7 +548,7 @@ int server()
 
 
 	//write to file
-	file_test = fwrite(&my_file, sizeof(file_params), 1, fp);
+	//file_test = fwrite(&my_file, sizeof(file_params), 1, fp);
 
 	fclose(fp);
 
@@ -647,13 +666,16 @@ int server()
 }
 
 /*** Client code ***/
-int client(int serverPID, int serverChID)
+int client(int serverPID, int serverChID, int nd)
 {
 	printf("Client running\n");
 	client_data msg;
-	my_reply reply;
+	_reply reply;
 
-	msg.ClientID = clients::TRAIN_I1;
+	_data HUBmsg;
+
+	//msg.ClientID = clients::TRAIN_I1;
+	HUBmsg.ClientID = clients::TRAIN_I1;
 
 	int server_coid;
 	int index = 0;
@@ -662,7 +684,7 @@ int client(int serverPID, int serverChID)
 	printf("   --> on channel: %d\n\n", serverChID);
 
 	// set up message passing channel
-	server_coid = ConnectAttach(ND_LOCAL_NODE, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+	server_coid = ConnectAttach(nd, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
 	if (server_coid == -1)
 	{
 		printf("\n    ERROR, could not connect to server!\n\n");
@@ -673,11 +695,13 @@ int client(int serverPID, int serverChID)
 	printf("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
 
 	// We would have pre-defined data to stuff here
-	msg.hdr.type = 0x00;
-	msg.hdr.subtype = 0x00;
+	//msg.hdr.type = 0x00;
+	//msg.hdr.subtype = 0x00;
+	HUBmsg.hdr.type = 0x00;
+	HUBmsg.hdr.subtype = 0x00;
 
 	int done = 0;
-	char keyboardInput = '0';
+	//char keyboardInput = '0';
 
 	// Do whatever work you wanted with server connection
 	//for (index=0; index < 5; index++) // send data packets
@@ -685,7 +709,9 @@ int client(int serverPID, int serverChID)
 	// set up data packet
 	//msg.data=10+index;
 
+
 	while (!done){
+		/*
 		while (1){
 			scanf("%c", &keyboardInput);					//wait for keyboard input
 			if (keyboardInput == 'i'){
@@ -705,17 +731,26 @@ int client(int serverPID, int serverChID)
 				break;
 			}
 		}
-		keyboardInput = '0';
+		*/
+
+		HUBmsg.data.lightTiming.ewTurn = 0;
+		HUBmsg.data.lightTiming.nsStraight = 0;
+		HUBmsg.data.lightTiming.nsTurn = 0;
+		HUBmsg.data.lightTiming.yellow = 0;
+		HUBmsg.data.lightTiming.ewStraight = 0;
+
 
 
 		// the data we are sending is in msg.data
 		//printf("Client (ID:%d), sending data packet with the  value: %c \n", msg.ClientID, msg.data[0]);
-		cout << "client " << msg.ClientID << "sending data packet value: " << msg.data[0] <<endl;
+		//cout << "client " << HUBmsg.ClientID << "sending data packet value: " << HUBmsg.data[0] <<endl;
 		fflush(stdout);
-
-		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+		int error = 0;
+		if (MsgSend(server_coid, &HUBmsg, sizeof(_data), &reply, sizeof(reply)) == -1)
 		{
-			printf(" Error data '%d' NOT sent to server\n", msg.data[0]);
+			error = errno;
+			printf("Error was: %s\n", strerror(error));
+			printf(" Error data NOT sent to server\n");
 			// maybe we did not get a reply from the server
 			break;
 		}
