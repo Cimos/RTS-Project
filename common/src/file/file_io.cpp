@@ -139,7 +139,6 @@ int read_pid_chid_FromFile(int *pid, int *chid, const char *node, const char *fi
 	if( fd != NULL )
 	{
 		DEBUGF("File Reading:\n");
-		extern ssize_t read(int __fildes, void *__buffer, size_t __len);
 		while(read(fd,  &line,  sizeof(line)) != 0 )
 		{
 			DEBUGF("id=%s\n", line );
@@ -147,7 +146,7 @@ int read_pid_chid_FromFile(int *pid, int *chid, const char *node, const char *fi
 	}
 	else
 	{
-		return NULL;
+		return -1;
 	}
 
 	// close file
@@ -172,7 +171,7 @@ int read_pid_chid_FromFile(int *pid, int *chid, const char *node, const char *fi
 	{
 		*pid = -1;
 		*chid = -1;
-		return NULL;
+		return -1;
 	}
 
 	DEBUGF("SubString1: %s\n",str.substr(pos1+sizeof("PID=")-1, pos2).c_str());
@@ -184,13 +183,13 @@ int read_pid_chid_FromFile(int *pid, int *chid, const char *node, const char *fi
 	nd = netmgr_strtond( node, NULL);
 	if (nd == -1) {
 		DEBUGF("Filed to get ND");
-		return NULL;
+		return -1;
 	}
 	else {
 		DEBUGF ("Node id for %s is %d.\n", node, nd);
 	}
 
-	return fd;
+	return nd;
 }
 
 

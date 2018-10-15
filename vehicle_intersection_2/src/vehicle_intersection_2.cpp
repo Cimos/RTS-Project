@@ -55,7 +55,7 @@ int main(void)
 	int chid = 0;
 
 
-	read_pid_chid_FromFile(&pid, &chid, CONTROLHUB_SERVER);
+	read_pid_chid_FromFile(&pid, &chid, CONTROLHUB,CONTROLHUB_SERVER);
 
 	std::cout << "pid = " << pid << std::endl;
 	std::cout << "chid = " << chid << std::endl;

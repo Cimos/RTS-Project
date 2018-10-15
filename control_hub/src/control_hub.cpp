@@ -209,7 +209,7 @@ int main(void)		//TODO: set date and time
 
 	std::string tt(CONTROLHUB);
 	tt.append(CONTROLHUB_SERVER);
-	fd = read_pid_chid_FromFile(&PID, &CHID, tt.c_str());
+	fd = read_pid_chid_FromFile(&PID, &CHID, CONTROLHUB,CONTROLHUB_SERVER);
 
 	std::cout << "PID=" << PID << std::endl;
 	std::cout << "CHID=" << CHID << std::endl;
