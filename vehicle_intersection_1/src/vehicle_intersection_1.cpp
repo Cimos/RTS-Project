@@ -33,6 +33,8 @@
 
 #include "debug.h"
 #include "threadTemplate.h"
+#include <sys/iomsg.h>
+#include <sys/neutrino.h>
 
 /*-----------------------------------------------------------------------------
 * Definitions
@@ -99,9 +101,13 @@ struct traffic_data
 	sem_t sem;
 	char sem_name[10];
 
-	int pid;
-	int chid;
-	int nd;
+	int pidt;
+	int chidt;
+	int ndt;
+
+	int pidc;
+	int chidc;
+	int ndc;
 };
 
 WorkerThread pingpong;
@@ -112,10 +118,11 @@ TRAFFIC_SENSORS _sensor;
 * Threads Declarations
 *---------------------------------------------------------------------------*/
 void *th_statemachine(void *Data);
-// TODO - Server read thread
 void *th_sensors(void *Data);
-void *th_fakeserver(void *Data);
-void *th_ipc_client(void *Data);
+void *th_ipc_controlhub_client(void *Data);
+void *th_ipc_train_client(void *Data);
+
+void *th_fakeserver(void *Data);	// Debug
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -146,7 +153,7 @@ int main(void)
 	struct sched_param keyPad_param;
     pthread_attr_init(&keyPad_attr);
     pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
-    keyPad_param.sched_priority = 20;	// TODO - Check priority
+    keyPad_param.sched_priority = 20;
     pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
     pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setstacksize (&keyPad_attr, 8000);
@@ -167,15 +174,17 @@ int main(void)
 
 #if DEBUG_RUN_SERVER == 1
 
-	// Setup filepath of server info file
-	std::string filename(CONTROLHUB);
-	filename.append(CONTROLHUB_SERVER);
+	// Setup Control Hub Server Connection
+//	traffic.ndc = read_pid_chid_FromFile( &traffic.pidc, &traffic.chidc, CONTROLHUB, CONTROLHUB_SERVER);
 
-	// Setup Server Connection
-	traffic.nd = read_pid_chid_FromFile( &traffic.pid, &traffic.chid, filename.c_str() );
+	// Confirm Control Hub Server Connection
+//	printf("Control Hub Server PID = %d\tCID = %d\n", traffic.pidc, traffic.chidc);
 
-	// Confirm Server Connection
-	printf("PID = %d\tCID = %d\n", traffic.pid, traffic.chid);
+	// Setup Train Server Connection
+	traffic.ndt = read_pid_chid_FromFile( &traffic.pidt, &traffic.chidt, "/net/BBB_CimosDirect", "/fs/TrainServer.info");
+
+	// Confirm Control Hub Server Connection
+	printf("Train Server PID = %d\tCID = %d\n", traffic.pidt, traffic.chidt);
 
 #else
 	pthread_t th_fake;
@@ -184,13 +193,15 @@ int main(void)
 	// Declare Threads
 	pthread_t th_traffic_sm;
 	pthread_t th_sensor;
-	pthread_t th_client;
+//	pthread_t th_client_control;
+	pthread_t th_client_train;
 	void *retval;
 
 	// Create Threads
 	pthread_create(&th_traffic_sm, NULL, th_statemachine, &traffic);
 	pthread_create(&th_sensor, NULL, th_sensors, &traffic);
-	pthread_create(&th_client, NULL, th_ipc_client, &traffic);
+//	pthread_create(&th_client_control, NULL, th_ipc_controlhub_client, &traffic);
+	pthread_create(&th_client_train, NULL, th_ipc_train_client, &traffic);
 
 #if DEBUG_RUN_SERVER == 0
 	pthread_create(&th_fake, NULL, th_fakeserver, &traffic);
@@ -200,7 +211,8 @@ int main(void)
 	// Join Threads
 	pthread_join(th_traffic_sm, &retval);
 	pthread_join(th_sensor, &retval);
-	pthread_join(th_client, &retval);
+//	pthread_join(th_client_control, &retval);
+	pthread_join(th_client_train, &retval);
 
 	// Close the named semaphore
 	sem_close(&traffic.sem);
@@ -260,7 +272,7 @@ void *th_sensors(void *Data)
 	traffic_data *data = (traffic_data*) Data;
 
 	// Create Timer
-	DelayTimer timer(false, 0, 1, 0, 0);
+	DelayTimer timer(false, 1, 1000, 0, 0); 	// 1us second delay
 
 	// Read Sensors Continuously
 	while(data->keep_running)
@@ -300,12 +312,14 @@ void *th_sensors(void *Data)
 			data->change_state = true;
 		}
 
-		// TODO - handle the train transitions
+		if (_sensor.train)
+		{
+			data->sensors.train = _sensor.train;
+			data->change_state = true;
+		}
 
 		// Set update rate
-		// Wait for timer to finish
-		// TODO - replace with shorter timer
-		timer.createTimer(); // 1 second timer
+		timer.createTimer(); // 1 us timer
 	}
 
 	printf("TLI-1 - Sensors - Thread Terminating\n");
@@ -333,9 +347,9 @@ void *th_fakeserver(void *Data)
 }
 
 
-void *th_ipc_client(void *Data)
+void *th_ipc_controlhub_client(void *Data)
 {
-	printf("TLI-1 - Client - Thread Started\n");
+	printf("TLI-1 - Control Hub Client - Thread Started\n");
 
 	// Cast pointer
 	traffic_data *data = (traffic_data*) Data;
@@ -351,11 +365,11 @@ void *th_ipc_client(void *Data)
 	msg.ClientID = TRAFFIC_L1; // ID 1
 
 	// Print debug
-	printf("   --> Trying to connect (server) process which has a PID: %d\n", data->pid);
-	printf("   --> on channel: %d\n\n", data->chid);
+	printf("   --> Trying to connect (server) process which has a PID: %d\n", data->pidc);
+	printf("   --> on channel: %d\n\n", data->chidc);
 
 	// Set up message passing channel
-	int server_coid = ConnectAttach(data->nd, data->pid, data->chid, _NTO_SIDE_CHANNEL, 0);
+	int server_coid = ConnectAttach(data->ndc, data->pidc, data->chidc, _NTO_SIDE_CHANNEL, 0);
 	if (server_coid == -1)
 	{
 		printf("\n    ERROR, could not connect to server!\n\n");
@@ -363,7 +377,7 @@ void *th_ipc_client(void *Data)
 	}
 
 	// Confirm connection
-	printf("Connection established to process with PID:%d, CHID:%d\n", data->pid, data->chid);
+	printf("Connection established to process with PID:%d, CHID:%d\n", data->pidc, data->chidc);
 
 	// We would have pre-defined data to stuff here
 	msg.hdr.type = 0x00;
@@ -372,22 +386,46 @@ void *th_ipc_client(void *Data)
 	while (data->keep_running)
 	{
 		// set up data packet
-		msg.data.currentState = data->current_state;
-		msg.data.lightTiming = data->timing;
+		msg.inter_data.currentState = data->current_state;
+		msg.inter_data.lightTiming = data->timing;
 
 		// Print data packet to send
-		printf("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.data.currentState);
+		printf("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.inter_data.currentState);
+		fflush(stdout);
 
 		// Try sending the message
 		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
 		{
 			// Reply not received from server
-			printf("\tError data '%d' NOT sent to server\n", msg.data.currentState);
+			printf("\tError data '%d' NOT sent to server\n", msg.inter_data.currentState);
 		}
 		else
 		{
 			// Process the reply
-			printf("\t-->Server reply is: '%s'\n", reply.buf);
+			printf("\t-->Server reply is: '%d'\n", reply.inter_data.currentState);
+
+			// Handle state requests
+			switch (reply.inter_data.currentState)
+			{
+			case NSG:
+				_sensor.ns_straight = true;
+				break;
+			case NSTG:
+				_sensor.ns_turn = true;
+				break;
+			case EWG:
+				_sensor.ew_straight = true;
+				break;
+			case EWTG:
+				_sensor.ew_turn = true;
+			default:
+				break;
+			}
+
+			// Update traffic light timing
+			reply.inter_data.lightTiming = data->timing;
+
+			// TODO - handle peak hour traffic changes
 		}
 
 		// Slow down the message rate
@@ -395,10 +433,65 @@ void *th_ipc_client(void *Data)
 	}
 
 	// Close the connection
-	printf("\n Sending message to server to tell it to close the connection\n");
 	ConnectDetach(server_coid);
 
-	printf("TLI-1 - Client - Thread Terminated\n");
+	printf("TLI-1 - Control Hub Client - Thread Terminated\n");
+	return EXIT_SUCCESS;
+}
+
+void *th_ipc_train_client(void *Data)
+{
+	printf("TLI-1 - Train Client - Thread Started\n");
+
+	// Cast pointer
+	traffic_data *data = (traffic_data*) Data;
+
+	// Create Timer
+	DelayTimer server_rate(false, 0, 1, 0, 0);
+
+	// Print debug
+	printf("\t--> Connecting to Train Server: PID: %d \tCHID %d\n", data->pidt, data->chidt);
+
+	// Set up message passing channel
+	int server_coid = ConnectAttach(data->ndt, data->pidt, data->chidt, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		printf("\n    ERROR, could not connect to server!\n\n");
+		return 0; 	// TODO - Exit with failure
+	}
+
+	// Confirm connection
+	printf("Connection established to process with PID:%d, CHID:%d\n", data->pidt, data->chidt);
+
+	while (data->keep_running)
+	{
+		// set up data packet
+		bool message = false;
+		bool reply_train = false;
+
+		// Try sending the message
+		if (MsgSend(server_coid, &message, sizeof(message), &reply_train, sizeof(reply_train)) == -1)
+		{
+			// Reply not received from server
+			printf("\tError data '%d' NOT sent to server\n", message);
+		}
+		else
+		{
+			// Process the reply
+			printf("\t-->Server reply is: '%d'\n", reply_train);
+
+			// Update train server
+			_sensor.train = reply_train;
+		}
+
+		// Slow down the message rate
+		server_rate.createTimer();
+	}
+
+	// Close the connection
+	ConnectDetach(server_coid);
+
+	printf("TLI-1 - Train Client - Thread Terminated\n");
 	return EXIT_SUCCESS;
 }
 
@@ -769,6 +862,15 @@ void state_transition(traffic_data *data)
 				data->sensors.ns_straight = 0;
 				data->sensors.ns_pedestrian = 0;
 			}
+			else if (data->sensors.ew_pedestrian == 1)
+			{
+				// Pedestraian wants to cross on EW
+				data->next_state = EWG;
+
+				// Reset sensor
+				data->sensors.ew_pedestrian = 0;
+
+			}
 			else
 			{
 				printf("\tERROR - Transition Triggered without sensor data\n");
@@ -783,8 +885,8 @@ void state_transition(traffic_data *data)
 			}
 			else if (data->sensors.ns_turn == 1)
 			{
-				// EW Car wants to turn
-				data->next_state = EWTG;
+				// NS Car wants to turn
+				data->next_state = NSTG;
 
 				// Reset sensor
 				data->sensors.ns_turn = 0;
@@ -835,13 +937,14 @@ void state_transition(traffic_data *data)
 				// Reset Sensor
 				data->sensors.ew_turn = 0;
 			}
-			else if (data->sensors.ew_straight == 1)
+			else if (data->sensors.ew_straight == 1 || data->sensors.ew_pedestrian == 1)
 			{
 				// EW car wants to go straight
 				data->next_state = EWG;
 
 				// Reset Sensor
 				data->sensors.ew_straight = 0;
+				data->sensors.ew_pedestrian = 0;
 			}
 			else
 			{
@@ -926,11 +1029,12 @@ void init_traffic_data(traffic_data *data)
 
 void keypad_cb(char keypress)
 {
-	//printf("Key %c pressed.\n", keypress);
 	// Start Worker thread
 	pingpong.doWork(&keypress, sizeof(keypress), 0);
 
-	usleep(1); // TODO - replace with proper timer
+	// Create Timer
+	DelayTimer timer(false, 1, 1000, 0, 0); 	// 1us second delay
+	timer.createTimer();
 }
 
 void *work_cb(workBuf *work)
