@@ -32,23 +32,26 @@ typedef struct {
 	// ********* I2C
 		I2C_HANDLE I2C_handle = {"/dev/i2c", 1, bus_speed::BAUD_100K};
 		UINT8 slave_addr = 0x23;
-}_self;
+}_self_i2c;
 
 // ---------------------------------------------------------------------------
 //							Global Function Definitions
 // ---------------------------------------------------------------------------
 
 // init i2c
-int i2cInit(_self *self);
+int i2cInit(_self_i2c *self);
 
 // init lcd graphics ft800 engine
-int lcdInit(_self *self);
+int lcdInit(_self_i2c *self);
 
 
 void Screen_animations(int i);
 
+void lcd_2();
 
 
+void splash_screen2();
+void splash_screen();
 
 
 

@@ -436,7 +436,7 @@ void make_string(UINT16 x1, UINT16 y1, UINT8 font_size, UINT16 option, UINT32 co
 void make_number(UINT16 x1, UINT16 y1, UINT8 font_size, UINT16 option, UINT32 color, UINT32 number);
 void make_button(UINT16 x1, UINT16 y1, UINT16 w, UINT16 h, UINT8 font_size, UINT16 option, UINT32 color, char *name);
 void make_progress(UINT16 x1, UINT16 y1, UINT16 w, UINT16 h, UINT16 options, UINT16 val, UINT16 range, UINT32 background_color, UINT32 foreground_color);
-void splash_screen();
+//void splash_screen();
 void start_screen(UINT32 clear_screen_color);
 void end_screen();
 void save_context();

@@ -44,6 +44,7 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <fcntl.h>
+#include <sys/netmgr.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -94,19 +95,16 @@ typedef struct
 
 
 
-static struct
+struct self
 {
-	int serverPID = 0;
-	int serverCHID = 0;
 
 	FILE *fp = NULL;
 	char line[255] = {};
 	char buf[MESSAGESIZE] = {};
-	int chid = 0;
 	int errorVal = 0;
+	char *progName = "Control Hub";
 
 	// ******** thread handlers
-	_thread serverThread;
 
 	// ********* IntrSect's
 	controler2Intersection intrSect_1;
@@ -135,15 +133,30 @@ static struct
 	}tm;
 
 
+	// ******** Server Struct
 	struct
 	{
 		WorkerThread server;
-
 		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+		_thread serverThread;
+		char *threadName = "control server";
+		int living = 1;
+		int chid = 0;
+		int serverPID = -1;
+		int serverCHID = -1;
 
 	}server;
 
-	// Create Worker Thread
+
+	struct
+	{
+	int serverPID;
+	int serverChID;
+	int server_coid;
+	_data* msg;
+	_reply *reply;
+	}client;
+
 }self;
 
 
@@ -151,17 +164,32 @@ static struct
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
 *---------------------------------------------------------------------------*/
+//Server/Client
 void *serverReceiver(void *chid);
 void *serverSender(workBuf *work);
-void *kpWork(workBuf *work);
+void clientDisconnect(int server_coid);
+_reply* clientSendMsg(_data* msg, _reply *reply);
+int clientConnect(int serverPID,  int serverChID);
+
+//init different services
 void threadInit(_thread *th);
 void serverInit(void);
-void init(void);
 bool keypadInit(int prio);
+
+// init  main
+void destroy(void);
+void init(void);
+
+// callback
 void keypad_cb(char keyPress);
+void *kpWork(workBuf *work);
+
+//logging
 void logData(_data *toLog);
 void logData(_reply *toLog);
 void logKeyPress(char key);
+
+// printing menu
 int printMenu(int mode);
 
 
@@ -170,24 +198,28 @@ int printMenu(int mode);
 *---------------------------------------------------------------------------*/
 int main(void)		//TODO: set date and time
 {
-	init();
+	//init();
+	int i =25 ;
 
 
-
-
+	std::cout << fileName << std::endl;
+	//splash_screen2();
+	sleep(5);
 
 
 //	char input = printMenu(1);
 
 
 // SCREEN:
-	Screen_animations(1);
 
 	while(1)
 	{
-		sleep(2);
+		Screen_animations(i);
+		i = i + 4;
 	}
 
+
+	destroy();
 	return EXIT_SUCCESS;
 }
 
@@ -282,18 +314,39 @@ void keypad_cb(char keyPress)
 }
 
 
+
+/* ----------------------------------------------------	*
+ *	@init Implementation:								*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
 void init(void)
 {
 	ThreadCtl(_NTO_TCTL_IO_PRIV , (void*)0);
+	pthread_setname_np(pthread_self(), 	self.progName);
+
 
 	std::string tmp(STARTUP_MSG);
 	write_string_ToFile(&tmp, CHLOG, "a+");
 
-	serverInit();
-	keypadInit(5);
+	//serverInit();
+	//keypadInit(5);
 	FT800_Init();
 
 }
+
+
+
+/* ----------------------------------------------------	*
+ *	@destroy Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void destroy(void)
+{
+
+}
+
 
 
 /* ----------------------------------------------------	*
@@ -327,12 +380,13 @@ void serverInit(void)
 {
 	Lock(self.server.Mtx);
 	DEBUGF("serverInit()->Initializing Server:\n");
-	threadInit(&self.serverThread);
+	threadInit(&self.server.serverThread);
 
-	self.serverPID = getpid(); 		// get server process ID
-	self.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
 
-	if (self.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
+	self.server.serverPID = getpid(); 		// get server process ID
+	self.server.serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT); // Create Channel
+
+	if (self.server.serverCHID == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
 	{
 		DEBUGF("serverInit()->Failed to create communication channel on server\n");
 		Unlock(self.server.Mtx);
@@ -340,14 +394,14 @@ void serverInit(void)
 	}
 
 	DEBUGF("serverInit()->Writing server details to a file:");
-	DEBUGF("serverInit()->Process ID   : %d \n", self.serverPID);
-	DEBUGF("serverInit()->Channel ID   : %d \n", self.serverCHID);
+	DEBUGF("serverInit()->Process ID   : %d \n", self.server.serverPID);
+	DEBUGF("serverInit()->Channel ID   : %d \n", self.server.serverCHID);
 
-	write_pid_chid_ToFile(self.serverPID, self.serverCHID, CONTROLHUB_SERVER);
+	write_pid_chid_ToFile(self.server.serverPID, self.server.serverCHID, CONTROLHUB_SERVER);
 
 	DEBUGF("serverInit()->Server listening for clients:\n");
 
-	pthread_create(&self.serverThread.thread, NULL, serverReceiver, (void *)&self);
+	pthread_create(&self.server.serverThread.thread, NULL, serverReceiver, (void *)&self);
 
 	DEBUGF("serverInit()->Finished server Init:\n");
 
@@ -382,11 +436,14 @@ void threadInit(_thread *th)
  * ---------------------------------------------------	*/
 void *serverReceiver(void *appData)
 {
-//	self *tmp = (self *)appData;
+	struct self* self = (struct self*)appData;
+
+	pthread_setname_np(pthread_self(), 	self->server.threadName);
+
 	int rcvid=0, msgnum=0;  	// no message received yet
-	int Stay_alive=0, living=1;	// stay alive and living for controlling the server status
-    int server_coid = 0;
-    int read = 0, chid = self.chid;
+	int Stay_alive=0;
+	int *living = &self->server.living;	// stay alive and living for controlling the server status
+    int read = 0, chid = self->server.chid;
     _data msg;			// received msg
 	_reply replymsg;	// replying msg
 
@@ -585,6 +642,11 @@ void logKeyPress(char key)
 
 
 
+/* ----------------------------------------------------	*
+ *	@printMenu Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
 int printMenu(int mode)
 {
 	char input = 0;
@@ -602,16 +664,71 @@ int printMenu(int mode)
 
 
 
+/* ----------------------------------------------------	*
+ *	@printMenu Implementation:							*
+ *	@brief:												*
+ *	@return:	server_coid								*
+ * ---------------------------------------------------	*/
+int clientConnect(int serverPID,  int serverChID)
+{
+    int server_coid;
+
+    DEBUGF("\t--> Trying to connect (server) process which has a PID: %d\n",   serverPID);
+    DEBUGF("\t--> on channel: %d\n", serverChID);
+
+	// set up message passing channel
+    server_coid = ConnectAttach(ND_LOCAL_NODE, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		DEBUGF("\n\tERROR, could not connect to server!\n\n");
+        return server_coid;
+	}
+
+	DEBUGF("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
+    return server_coid;
+}
 
 
 
+/* ----------------------------------------------------	*
+ *	@clientSendMsg Implementation:						*
+ *	@brief:												*
+ *	@return:	server_coid								*
+ * ---------------------------------------------------	*/
+_reply* clientSendMsg(int server_coid, _data* msg, _reply *reply)
+{
+
+    // the data we are sending is in msg.data
+    DEBUGF("Client (ID:%d), sending data packet\n", msg->ClientID);
+    fflush(stdout);
+
+    if (MsgSend(server_coid, &msg, sizeof(msg), reply, sizeof(_reply)) == -1)
+    {
+    	DEBUGF(" Error data NOT sent to server\n");
+    	return NULL;
+    }
+    else
+    { // now process the reply
+    	DEBUGF("-->Reply is: '%s'\n", reply->buf);
+    }
+
+
+    return reply;
+}
 
 
 
-
-
-
-
+/* ----------------------------------------------------	*
+ *	@clientDisconnect Implementation:					*
+ *	@brief:												*
+ *	@return:	server_coid								*
+ * ---------------------------------------------------	*/
+void clientDisconnect(int server_coid)
+{
+    DEBUGF("\n Sending message to server to tell it to close the connection\n");
+    ConnectDetach(server_coid);
+    return;
+}
 
 
 

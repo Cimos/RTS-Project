@@ -39,9 +39,19 @@
 
 #define MSG_SIZE 10
 
+#define CONTROLHUB "/net/RMIT_Cimos/tmp/"
+#define TRAINSTATION "/net/BBB_CimosDirect/tmp/"
+
+
+
 #define CONTROLHUB_SERVER "ControlServer.info"
 #define TRAIN_SERVER "TrainServer.info"
 
+
+// std::string fileName= CONTROLHUB;
+// fileName.append(CONTROLHUB_SERVER);
+
+// fileName.c_str() = c style string
 
 enum clients
 {
@@ -78,11 +88,15 @@ enum trainStationStates
     T1_DEPARTING,               // Line 1 Train Departing
     T2_ARIVING,                 // Line 2 Train Arriving
     T2_DEPARTING,               // Line 2 Train Departing
-    T1_BOOM_GATE_ERROR,         // Line 1 Boom Gate Error
-    T2_BOOM_GATE_ERROR,         // Line 2 BoomGate Error
+    BOOM_GATE_ERROR,            // Line 1+2 Boom Gate Error
     T1_SENSOR_ERROR,            // Line 1 Train Arriving Sensor Error
     T2_SENSOR_ERROR             // Line 2 Train Arriving Sensor Error
 };
+
+typedef struct 
+{
+    trainStationStates currentState;
+}trainMsg;
 
 
 typedef struct

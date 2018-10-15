@@ -69,12 +69,6 @@ int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UIN
 
 
 
-
-void *umalloc(int size);
-void ufree(UINT8 *free);
-
-
-
 /*-----------------------------------------------------------------------------
  * Global Function Implementation
  *---------------------------------------------------------------------------*/
@@ -197,7 +191,7 @@ ft_uint8_t wr8s(UINT32 addr, ft_char8_t *s)   // max 20 bytes of data excluding 
     UINT8 *data = NULL;
 
 
-	if ((data = (UINT8 *)umalloc((length+3) + allignment)) == NULL)
+	if ((data = (UINT8 *)malloc((length+3) + allignment)) == NULL)
 	{
 		return i;
 	}
@@ -217,7 +211,7 @@ ft_uint8_t wr8s(UINT32 addr, ft_char8_t *s)   // max 20 bytes of data excluding 
 
     I2C_Write(&_ft800.i2c, _ft800.addr, (length + 3 + allignment), data);
 
-    ufree(data);
+    free(data);
     return i;
 }
 
@@ -400,13 +394,3 @@ int I2C_Transaction(I2C_HANDLE *handle, UINT8 addr, UINT8 *sndBuf, int size, UIN
 
 
 
-
-
-void *umalloc(int size)
-{
-	return 0;
-}
-void ufree(UINT8 *free)
-{
-	return;
-}

@@ -114,7 +114,10 @@ void FT800_Init(void)
 	// write first display list
 	wr32(RAM_DL+0,CLEAR_COLOR_RGB(0,0,0));
 	wr32(RAM_DL+4,CLEAR(1,1,1));
+
 	wr32(RAM_DL+8,DISPLAY());
+
+	usleep(100);
 
 	wr8(REG_DLSWAP,DLSWAP_FRAME);//display list swap
 
@@ -131,11 +134,10 @@ void FT800_Init(void)
 	usleep(50);
 
 	start_screen(CLEAR_COLOR_RGB(0,0,0));
-	make_string(240,136,31,OPT_CENTER,COLOR_RGB(255,255,255), "RTS - PROJECT");
 	end_screen();
 
 	wr8(REG_PWM_DUTY, 255);
-	usleep(1000);
+	usleep(10000);
 
 	return;
 }
@@ -192,6 +194,8 @@ void end_screen()
   // Bug removed!!
   //wr32(REG_CMD_WRITE, (cmd_offset));
   // wr8(REG_DLSWAP,DLSWAP_FRAME);//display list swap
+  usleep(100);
+
   wr32(RAM_CMD + cmd_offset, (CMD_SWAP));
   cmd_increment4();
 
