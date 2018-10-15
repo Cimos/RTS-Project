@@ -128,7 +128,7 @@ int client(int serverPID,  int serverChID)
         }
         else
         { // now process the reply
-            printf("   -->Reply is: '%s'\n", reply_.buf);
+//            printf("   -->Reply is: '%s'\n", reply_.buf);
         }
 
         sleep(5);	// wait a few seconds before sending the next data packet

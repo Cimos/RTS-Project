@@ -139,8 +139,8 @@ typedef struct
 
 typedef struct
 {
-	struct _pulse hdr;  // Our real data comes after this header
-    char buf[MSG_SIZE]; // Message we send back to clients to tell them the messages was processed correctly.
+	struct _pulse hdr; // Our real data comes after this header
+	int ClientID; // our data (unique id from client)
 } _reply;
 
 

@@ -141,7 +141,6 @@ struct self
 		_thread serverThread;
 		char *threadName = "control server";
 		int living = 1;
-		int chid = 0;
 		int serverPID = -1;
 		int serverCHID = -1;
 
@@ -204,17 +203,17 @@ int main(void)		//TODO: set date and time
 	int PID = 0;
 	int CHID = 0;
 
-int fd= 0 ;
+	int fd= 0 ;
+
+	init();
+
 	std::string tt(CONTROLHUB);
 	tt.append(CONTROLHUB_SERVER);
 	fd = read_pid_chid_FromFile(&PID, &CHID, tt.c_str());
 
 	std::cout << "PID=" << PID << std::endl;
 	std::cout << "CHID=" << CHID << std::endl;
-
-
-	init();
-
+	std::cout << "Node Descriptor=" << fd << std::endl;
 
 
 //	char input = printMenu(1);
@@ -402,7 +401,7 @@ void serverInit(void)
 		return;
 	}
 
-	DEBUGF("serverInit()->Writing server details to a file:");
+	DEBUGF("serverInit()->Writing server details to a file:\n");
 	DEBUGF("serverInit()->Process ID   : %d \n", self.server.serverPID);
 	DEBUGF("serverInit()->Channel ID   : %d \n", self.server.serverCHID);
 
@@ -452,7 +451,8 @@ void *serverReceiver(void *appData)
 	int rcvid=0, msgnum=0;  	// no message received yet
 	int Stay_alive=0;
 	int *living = &self->server.living;	// stay alive and living for controlling the server status
-    int read = 0, chid = self->server.chid;
+    int read = 0, chid = self->server.serverCHID;
+    int error = 0;
     _data msg;			// received msg
 	_reply replymsg;	// replying msg
 
@@ -462,14 +462,18 @@ void *serverReceiver(void *appData)
     while (living)
     {
         rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
-        DEBUGF("Message Received:\n");
+        DEBUGF("Server->Message Received:\n");
 
         if (rcvid == -1) {
-        	DEBUGF("Failed to MsgReceive\n");
+        	DEBUGF("Server->Failed to MsgReceive\n");
+        	error = errno;
+    	    DEBUGF( "Server->That means: %s\n", strerror( error ) );
             break;
         }
         if (rcvid == 0) {
             switch (msg.hdr.code){
+
+            DEBUGF("Server->Pulse code received");
 
                 case _PULSE_CODE_DISCONNECT:
                     if(Stay_alive == 0)
@@ -508,14 +512,14 @@ void *serverReceiver(void *appData)
             if (msg.hdr.type == _IO_CONNECT )
             {
                 MsgReply( rcvid, EOK, NULL, 0 );
-                DEBUGF("gns service is running....\n");
+                DEBUGF("Server->gns service is running....\n");
                 continue;	// go back to top of while loop
             }
 
             if (msg.hdr.type > _IO_BASE && msg.hdr.type <= _IO_MAX )
             {
                 MsgError( rcvid, ENOSYS );
-                DEBUGF("Server received and IO message and rejected it....\n");
+                DEBUGF("Server->received and IO message and rejected it....\n");
                 continue;	// go back to top of while loop
             }
 
@@ -528,24 +532,29 @@ void *serverReceiver(void *appData)
         	{
         	case clients::TRAFFIC_L1:
         		//updateTrafficLight1Status();	// ie screen or gui
+        		DEBUGF("Server->message received from Traffic light 1");
 
         		break;
         	case clients::TRAFFIC_L2:
         		//updateTrafficLight2Status();	// ie screen or gui
+        		DEBUGF("Server->message received from Traffic light 2");
+
         		break;
         	case clients::TRAIN_I1:
         		//updateTrainIntersection1Status();	// ie screen or gui
+        		DEBUGF("Server->message received from Train Station 1");
+
         		break;
         	default:
         		break;
         	}
-
-            replymsg.buf[0] = read + '0';
+        	fflush(stdout);
+            //replymsg.buf[0] = read + '0';
 
             DEBUGF("Server->received data packet from client (ID:%d)\n", msg.ClientID);
             fflush(stdout);
 
-            DEBUGF("Server->replying with: '%s'\n",replymsg.buf);
+           //DEBUGF("Server->replying with: '%s'\n",replymsg.buf);
             MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
         }
         else
@@ -567,12 +576,13 @@ void *serverSender(workBuf *work)
 	_data msg;
 	_reply reply;
 	long rcvid = 0;
+	int chid = self.server.serverCHID;
 
 
 	Lock(self.server.Mtx);
 
 
-	rcvid = MsgSend(self.server.chid, &msg, sizeof(msg), &reply, sizeof(reply));
+	rcvid = MsgSend(chid, &msg, sizeof(msg), &reply, sizeof(reply));
 
 	Unlock(self.server.Mtx);
 
@@ -726,7 +736,7 @@ _reply* clientSendMsg(int server_coid, _data* msg, _reply *reply)
     }
     else
     { // now process the reply
-    	DEBUGF("-->Reply is: '%s'\n", reply->buf);
+    	//DEBUGF("-->Reply is: '%s'\n", reply->buf);
     }
 
 

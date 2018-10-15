@@ -16,8 +16,8 @@
 
 
 // Use to print out debuf statements
-#define DEBUGF //
-//#define DEBUGF printf("DEBUG->"); printf
+//#define DEBUGF //
+#define DEBUGF printf("DEBUG->"); printf
 //	fflush(stdout);
 
 
