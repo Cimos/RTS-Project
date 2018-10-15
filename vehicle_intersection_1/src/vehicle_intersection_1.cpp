@@ -45,7 +45,7 @@
 #define TIMER_TURN		2
 #define TIMER_YELLOW	1
 
-#define DEBUG_RUN_SERVER 0
+#define DEBUG_RUN_SERVER 1
 
 #define SEM_FLAGS O_CREAT | O_EXCL
 
@@ -98,6 +98,10 @@ struct traffic_data
 
 	sem_t sem;
 	char sem_name[10];
+
+	int pid;
+	int chid;
+	int nd;
 };
 
 WorkerThread pingpong;
@@ -111,6 +115,7 @@ void *th_statemachine(void *Data);
 // TODO - Server read thread
 void *th_sensors(void *Data);
 void *th_fakeserver(void *Data);
+void *th_ipc_client(void *Data);
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -121,7 +126,7 @@ void state_transition(traffic_data *data);
 
 void init_traffic_data(traffic_data *data);
 
-int client(int serverPID,  int serverChID);
+int client(int pid,  int chid, int nd);
 
 void keypad_cb(char keypress);
 void *work_cb(workBuf *work);
@@ -161,20 +166,17 @@ int main(void)
 	traffic.sem = *sem_open(traffic.sem_name, SEM_FLAGS, S_IRWXG, 1); // Group access, 1 = unlocked.
 
 #if DEBUG_RUN_SERVER == 1
+
+	// Setup filepath of server info file
+	std::string filename(CONTROLHUB);
+	filename.append(CONTROLHUB_SERVER);
+
 	// Setup Server Connection
-	int pid = 0;
-	int chid = 0;
+	traffic.nd = read_pid_chid_FromFile( &traffic.pid, &traffic.chid, filename.c_str() );
 
-	read_pid_chid_FromFile(&pid, &chid, CONTROLHUB_SERVER);
+	// Confirm Server Connection
+	printf("PID = %d\tCID = %d\n", traffic.pid, traffic.chid);
 
-	printf("PID = %d\tCID = %d\n", pid, chid);
-
-	if (client(pid, chid))
-	{
-		// Handle Error
-		printf("TLI-1 - Server Connection Error. Main terminated.\n");
-		return EXIT_FAILURE;
-	}
 #else
 	pthread_t th_fake;
 #endif // DEBUG_NO_SERVER == 1
@@ -182,11 +184,13 @@ int main(void)
 	// Declare Threads
 	pthread_t th_traffic_sm;
 	pthread_t th_sensor;
+	pthread_t th_client;
 	void *retval;
 
 	// Create Threads
 	pthread_create(&th_traffic_sm, NULL, th_statemachine, &traffic);
 	pthread_create(&th_sensor, NULL, th_sensors, &traffic);
+	pthread_create(&th_client, NULL, th_ipc_client, &traffic);
 
 #if DEBUG_RUN_SERVER == 0
 	pthread_create(&th_fake, NULL, th_fakeserver, &traffic);
@@ -196,6 +200,7 @@ int main(void)
 	// Join Threads
 	pthread_join(th_traffic_sm, &retval);
 	pthread_join(th_sensor, &retval);
+	pthread_join(th_client, &retval);
 
 	// Close the named semaphore
 	sem_close(&traffic.sem);
@@ -324,6 +329,76 @@ void *th_fakeserver(void *Data)
 	data->keep_running = 0;
 
 	printf("TLI-1 - Fake Server - Thread Terminating\n");
+	return EXIT_SUCCESS;
+}
+
+
+void *th_ipc_client(void *Data)
+{
+	printf("TLI-1 - Client - Thread Started\n");
+
+	// Cast pointer
+	traffic_data *data = (traffic_data*) Data;
+
+	// Create Timer
+	DelayTimer server_rate(false, 0, 1, 0, 0);
+
+	// Declare message variables
+	_data 	msg;
+	_reply 	reply;
+
+	// Set client ID
+	msg.ClientID = TRAFFIC_L1; // ID 1
+
+	// Print debug
+	printf("   --> Trying to connect (server) process which has a PID: %d\n", data->pid);
+	printf("   --> on channel: %d\n\n", data->chid);
+
+	// Set up message passing channel
+	int server_coid = ConnectAttach(data->nd, data->pid, data->chid, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		printf("\n    ERROR, could not connect to server!\n\n");
+		return 0; 	// TODO - Exit with failure
+	}
+
+	// Confirm connection
+	printf("Connection established to process with PID:%d, CHID:%d\n", data->pid, data->chid);
+
+	// We would have pre-defined data to stuff here
+	msg.hdr.type = 0x00;
+	msg.hdr.subtype = 0x00;
+
+	while (data->keep_running)
+	{
+		// set up data packet
+		msg.data.currentState = data->current_state;
+		msg.data.lightTiming = data->timing;
+
+		// Print data packet to send
+		printf("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.data.currentState);
+
+		// Try sending the message
+		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+		{
+			// Reply not received from server
+			printf("\tError data '%d' NOT sent to server\n", msg.data.currentState);
+		}
+		else
+		{
+			// Process the reply
+			printf("\t-->Server reply is: '%s'\n", reply.buf);
+		}
+
+		// Slow down the message rate
+		server_rate.createTimer();
+	}
+
+	// Close the connection
+	printf("\n Sending message to server to tell it to close the connection\n");
+	ConnectDetach(server_coid);
+
+	printf("TLI-1 - Client - Thread Terminated\n");
 	return EXIT_SUCCESS;
 }
 
@@ -847,64 +922,6 @@ void init_traffic_data(traffic_data *data)
 
 	// Set the Semaphore name
 	strcpy(data->sem_name, "sem_1");
-}
-
-int client(int serverPID,  int serverChID)
-{
-	_data msg_;
-    _reply reply_;
-
-    msg_.ClientID = 509;
-
-    int server_coid;
-    int index = 0;
-
-	printf("\t--> Trying to connect (server) process which has a PID: %d\n",   serverPID);
-	printf("\t--> on channel: %d\n", serverChID);
-
-	// set up message passing channel
-    server_coid = ConnectAttach(ND_LOCAL_NODE, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
-	if (server_coid == -1)
-	{
-        printf("\n\tERROR, could not connect to server!\n\n");
-        return EXIT_FAILURE;
-	}
-
-    printf("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
-
-    // We would have pre-defined data to stuff here
-    msg_.hdr.type = 0x00;
-    msg_.hdr.subtype = 0x00;
-
-    // Do whatever work you wanted with server connection
-    for (index=0; index < 5; index++) // send data packets
-    {
-    	// set up data packet
-    	//msg_.data=10+index;
-
-    	// the data we are sending is in msg.data
-        printf("Client (ID:%d), sending data packet with the integer value: %d \n", msg_.ClientID, msg_.data);
-        fflush(stdout);
-
-        if (MsgSend(server_coid, &msg_, sizeof(msg_), &reply_, sizeof(reply_)) == -1)
-        {
-            printf(" Error data '%d' NOT sent to server\n", msg_.data);
-            	// maybe we did not get a reply from the server
-            break;
-        }
-        else
-        { // now process the reply
-            //printf("   -->Reply is: '%s'\n", reply_.buf);
-        }
-
-        sleep(5);	// wait a few seconds before sending the next data packet
-    }
-
-    // Close the connection
-    printf("\n Sending message to server to tell it to close the connection\n");
-    ConnectDetach(server_coid);
-
-    return EXIT_SUCCESS;
 }
 
 void keypad_cb(char keypress)
