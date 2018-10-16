@@ -61,6 +61,20 @@ using namespace std;
 #define LED2	(1<<23)   // GPIO1_23
 #define LED3	(1<<24)   // GPIO1_24
 
+// Use to lock mutex
+#define Lock(_Mutex) {		 											\
+	do { 																\
+		pthread_mutex_lock(&_Mutex); 									\
+	} while(0); 														\
+}
+
+// Use to unlock mutex
+#define Unlock(_Mutex) { 												\
+	do { 																\
+		pthread_mutex_unlock(&_Mutex);									\
+	} while(0); 														\
+}
+
 /*-----------------------------------------------------------------------------
 * Local Variables and Buffers
 *---------------------------------------------------------------------------*/
@@ -122,13 +136,16 @@ my_data controlHubMsg;
 bool LED_retval = false;
 WorkerThread serverWorker;
 char serverRead = '0';
+bool boomStatus = true;	//true = boom down, false = boom up
 
 // connection data (you may need to edit this)
 int HUBserverPID = 0;	// CHANGE THIS Value to PID of the server process
 int	HUBserverCHID = 0;			// CHANGE THIS Value to Channel ID of the server process (typically 1)
 
 int trainStateToSend = trainStationStates::DEFAULT_TSS;
-
+pthread_mutex_t controlHubRqstMtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t boomGateStatusMTX = PTHREAD_MUTEX_INITIALIZER;
+int controlHubRqst = 0;
 
 //timer setup
 DelayTimer boomGateTimer(true, 0, 3, 0, 3);
@@ -159,9 +176,7 @@ bool writeBoneLeds(uint32_t pin, bool setTo);
 void flashLED(int LED_num);
 //void *server_cb(workBuf *work);
 int client(int serverPID, int serverChID, int nd);
-
-
-
+void resetControlHubRqst();
 
 
 /*-----------------------------------------------------------------------------
@@ -224,6 +239,16 @@ int main() {
 	void *clientThreadRetval;
 	pthread_create(&clientThread, NULL, client_ex, NULL);
 
+	/*
+	pthread_attr_t client_attr;
+	struct sched_param client_param;
+	pthread_attr_init(&client_attr);
+	pthread_attr_setschedpolicy(&client_attr, SCHED_RR);
+	keyPad_param.sched_priority = 10;
+	pthread_attr_setschedparam (&client_attr, &client_param);
+	pthread_attr_setinheritsched (&client_attr, PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setstacksize (&client_attr, 8000);
+	*/
 
 	//server code
 	//int ret = 0;
@@ -256,12 +281,13 @@ void *trainStateMachine_ex(void *data){
 
 void *server_ex(void *data){
 	cout << "starting server thread" << endl;
-	int ret = 0;
-	ret = server();
+	int ret2 = 0;
+	//ret2 = server();
 	return 0;
 }
 
 void *client_ex(void *data){
+	cout << "Client running" << endl;
 	int ret = 0;
 	int nd = read_pid_chid_FromFile( &HUBserverPID, &HUBserverCHID,CONTROLHUB, CONTROLHUB_SERVER);
 	ret = client(HUBserverPID, HUBserverCHID, nd);
@@ -366,9 +392,9 @@ void trainStateMachine(){
 	while (keepLooping)
 	{
 
-		if((sensorInput != lastSensorInput) || (controlHubMsg.data != oldMsgData)) 	// change state if new input
+		if((sensorInput != lastSensorInput) || (controlHubRqst != oldMsgData)) 	// change state if new input
 		{
-			oldMsgData = controlHubMsg.data;
+			oldMsgData = controlHubRqst;
 			lastSensorInput = sensorInput;
 		}
 		else
@@ -410,16 +436,17 @@ void trainStateMachine(){
 				}
 				lastSensorInput = lastSensorInputReset;
 			}
-			else if (controlHubMsg.data == 'i')		//control hub boom down request
+			else if (controlHubRqst == 11)		//control hub boom down request
 			{
-				hubCommand = true;
-				cout << "control Hub message received: " << controlHubMsg.data << endl;
+				//hubCommand = true;
+				cout << "control Hub message received: " << controlHubRqst << endl;
 				currentState = boomAlarmState;
-				controlHubMsg.data = lastSensorInputReset;
+				//controlHubMsg.data = lastSensorInputReset;
+				resetControlHubRqst();
 			}
 			else{
 				currentState = boomgateUpState;
-				trainStateToSend = trainStationStates::DEFAULT_TSS;
+				trainStateToSend = trainStationStates::BOOM_GATE_UP;
 				cout << "BOOMGATE UP" << endl << endl;
 			}
 			break;
@@ -427,6 +454,9 @@ void trainStateMachine(){
 		case boomAlarmState:
 			currentState = boomgateDownState;
 			cout << "TRAIN INBOUND" << endl;
+			Lock(boomGateStatusMTX);
+			boomStatus = true;
+			Unlock(boomGateStatusMTX);
 			boomGateTimer.createTimer();
 			if((train_1_boom_down == false) || (train_2_boom_down == false))
 			{
@@ -437,9 +467,9 @@ void trainStateMachine(){
 				LED_retval = writeBoneLeds(LED2, false);		//car stop light
 				while((train_1_boom_down == false) || (train_2_boom_down == false))
 				{
-					flashLED(3);		//flash boomgate fault lights
+					flashLED(3);							// flash boomgate fault lights
 				}
-				LED_retval = writeBoneLeds(LED0, true);		//turn off train stop lights
+				LED_retval = writeBoneLeds(LED0, true);		// turn off train stop lights
 				LED_retval = writeBoneLeds(LED1, true);
 			}
 			lastSensorInput = lastSensorInputReset;
@@ -451,8 +481,9 @@ void trainStateMachine(){
 			{
 				hubCommand = false;
 			}
-			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2) && (hubCommand == false) && (controlHubMsg.data != '0')) //
+			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2) && (hubCommand == false) && (controlHubRqst == 10)) //
 			{
+				resetControlHubRqst();
 				currentState = boomgateUpState;
 				cout << "TRAIN OUTBOUND" << endl;
 				boomGateTimer.createTimer();
@@ -467,7 +498,10 @@ void trainStateMachine(){
 				}												//TODO turn on in bound train stop lights
 				lastSensorInput = lastSensorInputReset;
 				LED_retval = writeBoneLeds(LED2, true);			//turn off car stop lights
-				trainStateToSend = trainStationStates::DEFAULT_TSS;
+				trainStateToSend = trainStationStates::BOOM_GATE_UP;
+				Lock(boomGateStatusMTX);
+				boomStatus = false;
+				Unlock(boomGateStatusMTX);
 				break;
 			}
 			else
@@ -475,6 +509,9 @@ void trainStateMachine(){
 				trainStateToSend = trainStationStates::BOOM_GATE_DOWN;
 				currentState = boomgateDownState;
 				cout << "BOOMGATE DOWN!" << endl;
+				Lock(boomGateStatusMTX);
+				boomStatus = true;
+				Unlock(boomGateStatusMTX);
 				break;
 			}
 			break;
@@ -546,22 +583,7 @@ int server()
 	my_file.PID = serverPID;
 	int file_test = 0;
 
-
-	//file location to write PID/CHID
-	//string fileName = TRAINSTATION;
-	//fileName.append("/fs/TrainServer.info");
-	//fp = fopen(fileName.c_str(), "w");
-
-	//fp = fopen("/net/BBB_CimosDirect/fs/TrainServer.info", "w");
-
-	//fp = fopen("/net/BBB_CimosDirect/fs/shawn_file", "w");
-
 	write_pid_chid_ToFile( my_file.PID, my_file.CHID, "/net/BBB_CimosDirect/fs/TrainServer.info", "w");
-
-	//write to file
-	//file_test = fwrite(&my_file, sizeof(file_params), 1, fp);
-
-	//fclose(fp);
 
 
 	//**************************************************************************************************
@@ -660,11 +682,11 @@ int server()
 			//sleep(1); // Delay the reply by a second (just for demonstration purposes)
 
 			//printf("\n    -----> replying with: '%s'\n",replymsg.buf);
-			bool train = true;
+
 
 			//MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
 
-			MsgReply(rcvid, EOK, &train, sizeof(train));
+			MsgReply(rcvid, EOK, &boomStatus, sizeof(boomStatus));
 		}
 		else
 		{
@@ -690,7 +712,6 @@ int client(int serverPID, int serverChID, int nd)
 	_data reply;
 	_data HUBmsg;
 
-	//msg.ClientID = clients::TRAIN_I1;
 	HUBmsg.ClientID = clients::TRAIN_I1;
 
 	int server_coid;
@@ -707,53 +728,18 @@ int client(int serverPID, int serverChID, int nd)
 		return EXIT_FAILURE;
 	}
 
-
 	printf("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
 
-	// We would have pre-defined data to stuff here
-	//msg.hdr.type = 0x00;
-	//msg.hdr.subtype = 0x00;
 	HUBmsg.hdr.type = 0x00;
 	HUBmsg.hdr.subtype = 0x00;
 
 	int done = 0;
-	//char keyboardInput = '0';
-
-	// Do whatever work you wanted with server connection
-	//for (index=0; index < 5; index++) // send data packets
-	//{
-	// set up data packet
-	//msg.data=10+index;
-
 
 	while (!done){
-		/*
-		while (1){
-			scanf("%c", &keyboardInput);					//wait for keyboard input
-			if (keyboardInput == 'i'){
-				msg.data[0] = keyboardInput;
-				//sprintf(buf, "%c", keyboardInput);			//put the message in a char[] so it can be sent
-				break;
-			}
-			else if (keyboardInput == 'o'){
-				msg.data[0] = keyboardInput;
-				//sprintf(buf, "%c", keyboardInput);			//put the message in a char[] so it can be sent
-				break;
-			}
-			else if (keyboardInput == 'q'){					// press q to close queue and quit
-				//sprintf(buf, "%c", keyboardInput);
-				msg.data[0] = keyboardInput;
-				done = 1;
-				break;
-			}
-		}
-		*/
-		sleep(1);
+
+		sleep(1);			//TODO replace with timer
 		HUBmsg.train_data.currentState = (trainStationStates)trainStateToSend;
 
-		// the data we are sending is in msg.data
-		//printf("Client (ID:%d), sending data packet with the  value: %c \n", msg.ClientID, msg.data[0]);
-		//cout << "client " << HUBmsg.ClientID << "sending data packet value: " << HUBmsg.data[0] <<endl;
 		fflush(stdout);
 		int error = 0;
 		if (MsgSend(server_coid, &HUBmsg, sizeof(_data), &reply, sizeof(reply)) == -1)
@@ -766,19 +752,30 @@ int client(int serverPID, int serverChID, int nd)
 		}
 		else
 		{ // now process the reply
-			//printf("   -->Reply is: '%s'\n", reply.train_data.currentState);
-			cout << "Reply: " << reply.train_data.currentState << endl;
+			cout << "HUB Reply: " << reply.train_data.currentState << endl;
+
+			if((reply.train_data.currentState == 10)||(reply.train_data.currentState == 11)){
+				Lock(controlHubRqstMtx);
+				controlHubRqst = reply.train_data.currentState;
+				Unlock(controlHubRqstMtx);
+				cout << "Control Hub Request: " << controlHubRqst << endl;
+			}
+
 		}
 
 	}//end while
-	//sleep(5);	// wait a few seconds before sending the next data packet
-	//}
 
 	// Close the connection
 	printf("\n Sending message to server to tell it to close the connection\n");
 	ConnectDetach(server_coid);
 
 	return EXIT_SUCCESS;
+}
+
+void resetControlHubRqst(){
+	Lock(controlHubRqstMtx);
+	controlHubRqst = 0;
+	Unlock(controlHubRqstMtx)
 }
 
 
