@@ -190,8 +190,10 @@ DelayTimer flashLEDTimer(true, 1, 4500000000, 1, 4500000000);
 void *trainStateMachine_ex(void *data);
 void *server_ex(void *data);
 void *client_ex(void *data);
-
+void Client_Start(int prio);
 void *clientService(void *notUsed);
+int clientConnect(int serverPID,  int serverChID, int nodeDescriptor);
+void clientDisconnect(int server_coid);
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -268,7 +270,8 @@ int main() {
 
 	pthread_t clientThread;
 	void *clientThreadRetval;
-	pthread_create(&clientThread, NULL, client_ex, NULL);
+	//pthread_create(&clientThread, NULL, client_ex, NULL);
+	Client_Start(10);
 
 	/*
 	pthread_attr_t client_attr;
@@ -823,12 +826,13 @@ void resetControlHubRqst(){
 
 
 
+
 /* ----------------------------------------------------	*
- *	@trainClient_Start Implementation:					*
+ *	@Client_Start Implementation:					*
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
-void trainClient_Start(int prio)
+void Client_Start(int prio)
 {
 	Lock(client.Mtx);
 	client.clientInitThread.priority = prio;
