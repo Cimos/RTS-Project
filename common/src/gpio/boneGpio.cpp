@@ -28,6 +28,8 @@
 * Definitions
 *---------------------------------------------------------------------------*/
 
+//#define DEBUGF printf(Debug->); printf
+#define DEBUGF//
 #define PU_ENABLE0x00
 #define PU_DISABLE0x01
 #define PU_PULL_UP0x01
