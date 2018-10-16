@@ -207,7 +207,6 @@ int main(void)		//TODO: set date and time
 
 
 	//char input = printMenu(1);
-	splash_screen2();
 
 
 // SCREEN:
@@ -346,6 +345,8 @@ void init(void)
 	serverInit();
 	keypadInit(20);
 	FT800_Init();
+	splash_screen();
+
 
 }
 
@@ -616,7 +617,7 @@ void logIntersectionData(_data *toLog)
 
 	// creating cvs formate with time and date stamp
 	toLogData.append(time.substr(0,time.length()-1));
-	toLogData.append(":Sending->ClientID=");
+	toLogData.append(":Msg->ClientID=");
 	toLogData.append(std::to_string(toLog->ClientID));
 	toLogData.append(",nsStright=");
 	toLogData.append(std::to_string(toLog->inter_data.lightTiming.nsStraight));
@@ -649,7 +650,7 @@ void logTrainData(_data *toLog)
 
 	// creating cvs formate with time and date stamp
 	toLogData.append(time.substr(0,time.length()-1));
-	toLogData.append(":Sending->ClientID=");
+	toLogData.append(":Msg->ClientID=");
 	toLogData.append(std::to_string(toLog->ClientID));
 	toLogData.append(",trainState=");
 	toLogData.append(std::to_string(toLog->train_data.currentState));
@@ -666,20 +667,21 @@ void logTrainData(_data *toLog)
  * ---------------------------------------------------	*/
 void logKeyPress(char key)
 {
+	char tmp[2] = {};
 	std::string toLogData;
 	Lock(self.tm.Mtx)
 	self.tm.time = time(NULL);
 	self.tm.currentTime = localtime(&self.tm.time);
 	std::string time(asctime(self.tm.currentTime));
-
+	tmp[0] = key;
 	// creating cvs formate with time and date stamp
 	toLogData.append(time.substr(0,time.length()-1));
-	toLogData.append(":Reply->ClientID=");
+	toLogData.append(":Sensor->KeyPress=");
+	toLogData.append(tmp);
 	toLogData.append(";\n");
 	write_string_ToFile(&toLogData, CHLOG, "a+");
 	Unlock(self.tm.Mtx)
 }
-
 
 
 /* ----------------------------------------------------	*

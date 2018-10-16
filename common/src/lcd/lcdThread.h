@@ -39,20 +39,15 @@ typedef struct {
 // ---------------------------------------------------------------------------
 
 // init i2c
-int i2cInit(_self_i2c *self);
+//int i2cInit(_self_i2c *self);
 
 // init lcd graphics ft800 engine
-int lcdInit(_self_i2c *self);
+//int lcdInit(_self_i2c *self);
 
-
-void Screen_animations(int i);
 
 void lcd_2();
 
-
-void splash_screen2();
 void splash_screen();
-
 
 
 

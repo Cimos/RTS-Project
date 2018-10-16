@@ -75,6 +75,35 @@ using namespace std;
 	} while(0); 														\
 }
 
+
+typedef struct
+{
+	int priority;
+	pthread_t thread;
+	pthread_attr_t attr;
+	struct sched_param sch_prm;
+}_thread;
+
+
+// ******** Client Struct ********
+struct
+{
+	WorkerThread client;
+	pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+	_thread clientWorkThread = {0};
+	_thread clientInitThread = {0};
+	char *workingthreadName = "Train Service Work";
+	char *servicethreadName = "Train Station Service";
+	int living = 1;
+	int serverPID = 0;
+	int serverCHID = 0;
+	int *server_coid = 0;
+	int nodeDescriptor = 0;
+	trainStationStates Train1 = trainStationStates::DEFAULT_TSS;
+	_data* msg;
+	_data *reply;
+}client;
+
 /*-----------------------------------------------------------------------------
 * Local Variables and Buffers
 *---------------------------------------------------------------------------*/
@@ -117,6 +146,7 @@ size_t read_data(FILE *fp, file_params *p)
 {
 	return(fread(p, sizeof(file_params), 1, fp));
 }
+
 
 int currentState, oldCurrentState = initState;
 bool train_1_arrive_1 = false;
@@ -161,6 +191,7 @@ void *trainStateMachine_ex(void *data);
 void *server_ex(void *data);
 void *client_ex(void *data);
 
+void *clientService(void *notUsed);
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -175,10 +206,10 @@ int server();
 bool writeBoneLeds(uint32_t pin, bool setTo);
 void flashLED(int LED_num);
 //void *server_cb(workBuf *work);
-int client(int serverPID, int serverChID, int nd);
+int _client(int serverPID, int serverChID, int nd);
 void resetControlHubRqst();
 
-
+void threadInit(_thread *th);
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
@@ -290,7 +321,7 @@ void *client_ex(void *data){
 	cout << "Client running" << endl;
 	int ret = 0;
 	int nd = read_pid_chid_FromFile( &HUBserverPID, &HUBserverCHID,CONTROLHUB, CONTROLHUB_SERVER);
-	ret = client(HUBserverPID, HUBserverCHID, nd);
+	ret = _client(HUBserverPID, HUBserverCHID, nd);
 	return 0;
 }
 
@@ -703,7 +734,7 @@ int server()
 }
 
 /*** Client code ***/
-int client(int serverPID, int serverChID, int nd)
+int _client(int serverPID, int serverChID, int nd)
 {
 	printf("Client running\n");
 	//client_data msg;
@@ -776,6 +807,173 @@ void resetControlHubRqst(){
 	Lock(controlHubRqstMtx);
 	controlHubRqst = 0;
 	Unlock(controlHubRqstMtx)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ----------------------------------------------------	*
+ *	@trainClient_Start Implementation:					*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void trainClient_Start(int prio)
+{
+	Lock(client.Mtx);
+	client.clientInitThread.priority = prio;
+	client.clientWorkThread.priority = prio;
+	threadInit(&client.clientInitThread);
+	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, NULL);
+
+	Unlock(client.Mtx);
+}
+
+
+/* ----------------------------------------------------	*
+ *	@clientService Implementation:						*
+ *	@brief:												*
+ *	@return:	server_coid								*
+ * ---------------------------------------------------	*/
+void *clientService(void *notUsed)
+{
+	bool fileExists = false;
+	int nD = -1;
+	DelayTimer timout(false, 0, 3, 0, 0);
+	int pid = 0;
+	int chid = 0;
+
+	Lock(client.Mtx);
+	// naming thread
+	pthread_setname_np(pthread_self(),client.servicethreadName);
+
+	Unlock(client.Mtx);
+
+	std::string fullFilePath(CONTROLHUB);
+	fullFilePath.append(CONTROLHUB_SERVER);
+
+
+	while(true)
+	{
+		//checking if file for server exists
+		do
+		{
+			DEBUGF("clientService->checking for file with train server details\n");
+
+			fileExists = checkIfFileExists(fullFilePath.c_str());
+			timout.createTimer();
+
+		}while(!fileExists);
+
+		nD = read_pid_chid_FromFile(&pid, &chid, TRAINSTATION, TRAIN_SERVER);
+
+		if (nD != 0)
+		{
+			break;
+			DEBUGF("clientService->Server file found with a valid node descriptor\n");
+		}
+		timout.createTimer();
+	}
+
+	Lock(client.Mtx);
+	client.serverPID = pid;
+	client.serverCHID = chid;
+	client.nodeDescriptor = nD;
+	Unlock(client.Mtx);
+
+	// start client service for train station
+	client.clientWorkThread.priority = 10;
+	threadInit(&client.clientWorkThread);
+
+	pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
+
+	// wait for working thread to finish
+	pthread_join(client.clientWorkThread.thread, NULL);
+
+
+	//locking mutex
+	Lock(client.Mtx);
+
+	// Check if living and if node has failed.. i.e. a drop.
+	if (client.living == 0)
+	{
+		Unlock(client.Mtx);
+		return NULL;
+	}
+	// create a thread that is this function and then exit this thread.
+	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, client_ex, NULL);
+
+	// reconnection counter
+	// create longer delay?
+	Unlock(client.Mtx);
+
+	return NULL;
+}
+
+
+
+/* ----------------------------------------------------	*
+ *	@clientConnect Implementation:						*
+ *	@brief:												*
+ *	@return:	int										*
+ * ---------------------------------------------------	*/
+int clientConnect(int serverPID,  int serverChID, int nodeDescriptor)
+{
+    int server_coid;
+
+    DEBUGF("clientConnect->trying to connect (server) process which has a PID: %d\n", serverPID);
+    DEBUGF("clientConnect->on channel: %d\n", serverChID);
+
+	// set up message passing channel
+    server_coid = ConnectAttach(nodeDescriptor, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		DEBUGF("clientConnect->ERROR, could not connect to server!\n\n");
+        return server_coid;
+	}
+
+	DEBUGF("clientConnect->connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
+    return server_coid;
+}
+
+
+/* ----------------------------------------------------	*
+ *	@clientDisconnect Implementation:					*
+ *	@brief:												*
+ *	@return:	server_coid								*
+ * ---------------------------------------------------	*/
+void clientDisconnect(int server_coid)
+{
+    DEBUGF("\n Sending message to server to tell it to close the connection\n");
+    ConnectDetach(server_coid);
+    return;
+}
+
+
+/* ----------------------------------------------------	*
+ *	@threadInit Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void threadInit(_thread *th)
+{
+	// setting up thread attributes
+    pthread_attr_init (&th->attr);
+    pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
+    th->sch_prm.sched_priority = th->priority;
+    pthread_attr_setschedparam (&th->attr, &th->sch_prm);
+    pthread_attr_setinheritsched (&th->attr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setstacksize (&th->attr, 8000);
 }
 
 

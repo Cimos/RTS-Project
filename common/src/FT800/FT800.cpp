@@ -61,7 +61,7 @@ void set_screen_rotation(UINT32 bit_0);
 // --------------------------------------- INIT SCREEN ---------------------------------------
 void FT800_Init(void)
 {
-	DEBUGF("Initializing FT800_i2c_port");
+	DEBUGF("Initializing FT800_i2c_port\n");
 
 
 	i2c_LCD_port_OPEN();
