@@ -291,7 +291,7 @@ int main() {
 	//close threads
 	pthread_join(SMThread, &SMThreadRetval);
 	pthread_join(serverThread, &serverThreadRetval);
-	pthread_join(clientThread, &clientThreadRetval);
+	//pthread_join(clientThread, &clientThreadRetval);
 
 
 	printf("\nMain Terminating...\n");
@@ -322,9 +322,9 @@ void *server_ex(void *data){
 
 void *client_ex(void *data)
 {
-	_client(client.serverPID, client.serverCHID, client.nodeDescriptor);
 
-	return 0;
+
+	return NULL;
 }
 
 
@@ -813,21 +813,8 @@ void resetControlHubRqst(){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* ----------------------------------------------------	*
- *	@Client_Start Implementation:					*
+ *	@Client_Start Implementation:						*
  *	@brief:												*
  *	@return:											*
  * ---------------------------------------------------	*/
@@ -838,7 +825,7 @@ void Client_Start(int prio)
 	client.clientWorkThread.priority = prio;
 	threadInit(&client.clientInitThread);
 	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, NULL);
-
+	usleep(1);
 	Unlock(client.Mtx);
 }
 
@@ -859,12 +846,10 @@ void *clientService(void *notUsed)
 	Lock(client.Mtx);
 	// naming thread
 	pthread_setname_np(pthread_self(),client.servicethreadName);
-
 	Unlock(client.Mtx);
 
 	std::string fullFilePath(CONTROLHUB);
 	fullFilePath.append(CONTROLHUB_SERVER);
-
 
 	while(true)
 	{
@@ -898,10 +883,10 @@ void *clientService(void *notUsed)
 	client.clientWorkThread.priority = 10;
 	threadInit(&client.clientWorkThread);
 
-	pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
-
+	//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
+	_client(client.serverPID, client.serverCHID, client.nodeDescriptor);
 	// wait for working thread to finish
-	pthread_join(client.clientWorkThread.thread, NULL);
+	//pthread_join(client.clientWorkThread.thread, NULL);
 
 
 	//locking mutex
@@ -914,7 +899,7 @@ void *clientService(void *notUsed)
 		return NULL;
 	}
 	// create a thread that is this function and then exit this thread.
-	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, client_ex, NULL);
+	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, NULL);
 
 	// reconnection counter
 	// create longer delay?
