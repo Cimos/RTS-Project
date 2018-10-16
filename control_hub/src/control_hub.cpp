@@ -512,7 +512,7 @@ void *serverReceiver(void *appData)
                         ConnectDetach(msg.hdr.scoid);
                         DEBUGF("Server->was told to Detach from ClientID:%d ...\n", msg.ClientID);
                         //living = 0; // kill while loop
-                        //continue;
+                        continue;
                     }
                     else
                     {

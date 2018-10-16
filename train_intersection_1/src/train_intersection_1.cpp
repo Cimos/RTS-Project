@@ -320,11 +320,10 @@ void *server_ex(void *data){
 	return 0;
 }
 
-void *client_ex(void *data){
-	cout << "Client running" << endl;
-	int ret = 0;
-	int nd = read_pid_chid_FromFile( &HUBserverPID, &HUBserverCHID,CONTROLHUB, CONTROLHUB_SERVER);
-	ret = _client(HUBserverPID, HUBserverCHID, nd);
+void *client_ex(void *data)
+{
+	_client(client.serverPID, client.serverCHID, client.nodeDescriptor);
+
 	return 0;
 }
 
@@ -879,7 +878,7 @@ void *clientService(void *notUsed)
 
 		}while(!fileExists);
 
-		nD = read_pid_chid_FromFile(&pid, &chid, TRAINSTATION, TRAIN_SERVER);
+		nD = read_pid_chid_FromFile(&pid, &chid, CONTROLHUB, CONTROLHUB_SERVER);
 
 		if (nD != 0)
 		{
