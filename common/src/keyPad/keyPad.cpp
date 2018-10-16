@@ -41,7 +41,8 @@
 /*-----------------------------------------------------------------------------
 * Definitions
 *----------------------------------------------------------------------------*/
-
+//#define DEBUGF printf("Debug->");print
+#define DEBUGF//
 
 #define AM335X_CONTROL_MODULE_BASE   (uint64_t) 0x44E10000
 #define AM335X_CONTROL_MODULE_SIZE   (size_t)   0x00001448
@@ -679,7 +680,7 @@ void* keyPad::mainWorkThread(void *appData)
 		DEBUGF("keyPad->val[%u]=%u, ",i, val);
 		word = word | (val<<i);  // add data bit to word in unique position (build word up bit by bit)
 		}
-		//puts("word=%u\n",word);
+		DEBUGF("word=%u\n",word);
 		key = DecodeKeyValue(word);
 		if (cbTable->cb != NULL)
 		{

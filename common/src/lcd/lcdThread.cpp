@@ -192,6 +192,21 @@ void splash_screen2()
 
 }
 
+// 240 *2
+// 136 * 2
+void splash_screen3()
+{
+
+	start_screen(CLEAR_COLOR_RGB(0,0,0));
+	make_string(240,106,31,OPT_CENTER,COLOR_RGB(i,i,i), "RTS Project 2018");
+	make_string(240,166,22,OPT_CENTER,COLOR_RGB(i,i,i), "Simon Maddison, Shawn Buschmann, Michael Stekla");
+	end_screen();
+
+	usleep(10000);
+
+
+}
+
 
 
 
