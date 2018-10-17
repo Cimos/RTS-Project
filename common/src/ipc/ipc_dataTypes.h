@@ -45,8 +45,8 @@
 //#define CONTROLHUB_SERVER "/fs/ControlServer.info"
 //#define TRAIN_SERVER "/fs/TrainServer.info"
 
-#define CONTROLHUB "/net/BBB_CimosDirect"	// Changed for Debug
-#define TRAINSTATION "/net/BBB_CimosDirect"
+#define CONTROLHUB "/net/BBB_CimosDirect"			// Changed for Debug
+#define TRAINSTATION "/net/RMIT_Cimos"
 
 #define CONTROLHUB_SERVER "/fs/ControlServer.info"
 #define TRAIN_SERVER "/fs/TrainServer.info"
@@ -101,11 +101,11 @@ enum trainStationStates
 
 typedef struct
 {
-    uint8_t nsStraight;         // North/South Straight Light timing
-    uint8_t nsTurn;             // North/South Turn Light timing
-    uint8_t ewStraight;         // East/West Straight Light timing
-    uint8_t ewTurn;             // East/West Turn Light timing
-    uint8_t yellow;				// Yellow Light timing
+    uint8_t nsStraight;         // North/South Straight Light timing	// 10 seconds
+    uint8_t nsTurn;             // North/South Turn Light timing		// 5 seconds
+    uint8_t ewStraight;         // East/West Straight Light timing		// 10 seconds
+    uint8_t ewTurn;             // East/West Turn Light timing			// 5 seconds
+    uint8_t yellow;				// Yellow Light timing					// 3 seconds
 }trafficLightTiming;
 
 

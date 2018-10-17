@@ -144,6 +144,12 @@ struct self
 		uint8_t morningOffPeak = 63;	// 10:30am
 		uint8_t eveningOnPeak = 93;		// 3:30pm
 		uint8_t eveningOffPeak = 111;	// 6:60pm
+
+		// Updates timing information of states of lights
+		trafficLightTiming TrafficSequenceT1 = {10,5,10,5,3};
+
+		// Updates timing information of states of lights
+		trafficLightTiming TrafficSequenceT2 = {12,7,10,5,3};
 	}server;
 
 
@@ -321,8 +327,18 @@ void *kpWork(workBuf *work)
 		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
 	case 'E':
+		// T1,T2 standard
+		self.server.TrafficSequenceT1 = {10,5,10,5,3};
+		self.server.TrafficSequenceT1 = {12,7,10,5,3};
+		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
+		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
 	case 'F':
+		//T1,T2 doubles
+		self.server.TrafficSequenceT1 = {20,10,20,10,6};
+		self.server.TrafficSequenceT1 = {24,14,20,10,6};
+		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
+		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
 	case 'G':
 		break;
@@ -377,8 +393,8 @@ void init(void)
 	setTimeDateControlHub();
 	serverInit();
 	keypadInit(20);
-	FT800_Init();
-	splash_screen();
+//	FT800_Init();
+//	splash_screen();
 
 
 }
@@ -607,6 +623,7 @@ void *serverReceiver(void *appData)
 					replymsg.timing.morningPeakFinish = self->server.morningOffPeak;
 					replymsg.timing.eveningPeakStart = self->server.eveningOnPeak;
 					replymsg.timing.eveningPeakFinish = self->server.eveningOffPeak;
+					replymsg.inter_data.lightTiming = self->server.TrafficSequenceT1;
 				}
 
                 self->server.T1 = trafficLightStates::DEFAULT_TLS;
@@ -627,6 +644,8 @@ void *serverReceiver(void *appData)
 					replymsg.timing.morningPeakFinish = self->server.morningOffPeak;
 					replymsg.timing.eveningPeakStart = self->server.eveningOnPeak;
 					replymsg.timing.eveningPeakFinish = self->server.eveningOffPeak;
+					replymsg.inter_data.lightTiming = self->server.TrafficSequenceT2;
+
 				}
 
         		self->server.T2 = trafficLightStates::DEFAULT_TLS;
