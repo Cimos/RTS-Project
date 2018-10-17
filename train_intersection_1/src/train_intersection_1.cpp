@@ -259,7 +259,7 @@ int main() {
 	struct sched_param keyPad_param;
 	pthread_attr_init(&keyPad_attr);
 	pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
-	keyPad_param.sched_priority = 6;
+	keyPad_param.sched_priority = 20;
 	pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
 	pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setstacksize (&keyPad_attr, 8000);
@@ -635,7 +635,7 @@ void serverInit(void)
 	DEBUGF("serverInit()->Channel ID   : %d \n", serverCHID);
 
 	// writing server info to control hub file
-	write_pid_chid_ToFile(serverPID, serverCHID, CONTROLHUB_SERVER);
+	write_pid_chid_ToFile(serverPID, serverCHID, TRAIN_SERVER);
 
 	DEBUGF("serverInit()->Server listening for clients:\n");
 

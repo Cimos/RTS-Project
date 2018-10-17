@@ -847,7 +847,7 @@ int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
 		bool reply_train = false;
 
 		int error = 0;
-		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+		if (MsgSend(server_coid, &msg, sizeof(msg), &reply_train, sizeof(reply_train)) == -1)
 		{
 			error = errno;
 			DEBUGF("Error was: %s\n", strerror(error));

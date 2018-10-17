@@ -720,6 +720,7 @@ int _client(int serverPID, int serverChID, int nd, void *Data)
 //			case EWTG:
 //				_sensor.ew_turn = true;
 			case TIMEING_UPDATE:
+				printf("Timing Update Received\n");
 				setTimeDate( localtime(&reply.timing.time) );
 				_peakhour = checkIfpeak(NULL, &reply.timing);
 			default:
@@ -848,7 +849,7 @@ int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
 		bool reply_train = false;
 
 		int error = 0;
-		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+		if (MsgSend(server_coid, &msg, sizeof(msg), &reply_train, sizeof(reply_train)) == -1)
 		{
 			error = errno;
 			DEBUGF("Error was: %s\n", strerror(error));
