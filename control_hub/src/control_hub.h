@@ -28,25 +28,6 @@
 #define STARTUP_MSG "\n----------------------------------------------------------\nControl Hub Restarted:\n----------------------------------------------------------\n\n"
 #define CHLOG "/fs/controlHub.log"
 #define MESSAGESIZE 12
-#define BUF_SIZE 9
-
-
-
-
-enum userInput2Command
-{
-	_default_ui2c = 0,	// Default state
-						// Keypress 1
-
-
-
-};
-
-
-
-
-
-
 
 
 

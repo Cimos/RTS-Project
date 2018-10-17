@@ -19,7 +19,7 @@
 
 #define MAX_BRIGHTNESS_LCD        128
 #define MIN_BRIGHTNESS_LCD        0
-
+#define DEBUGF //
 
 
 // ---------------------------------------------------------------------------

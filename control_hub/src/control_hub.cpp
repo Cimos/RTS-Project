@@ -25,6 +25,7 @@
 #include "keyPad.h"
 #include "debug.h"
 #include "workerThread.h"
+#include "trafficTime.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +36,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <errno.h>
-
+#include <sys/wait.h>
 
 //#include <semaphore.h>
 //#include <fcntl.h>
@@ -136,7 +137,13 @@ struct self
 		trafficLightStates T1 =trafficLightStates::DEFAULT_TLS;
 		trafficLightStates T2 =trafficLightStates::DEFAULT_TLS;
 		trainStationStates T3 =trainStationStates::DEFAULT_TSS;
-
+		time_t updatedTime = 0;
+		// in 10 min incriments
+		// default times
+		uint8_t morningOnPeak = 45;		// 7:30am
+		uint8_t morningOffPeak = 63;	// 10:30am
+		uint8_t eveningOnPeak = 93;		// 3:30pm
+		uint8_t eveningOffPeak = 111;	// 6:60pm
 	}server;
 
 
@@ -195,13 +202,24 @@ void logKeyPress(char key);
 // printing menu
 int printMenu(int mode);
 
-
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
 int main(void)		//TODO: set date and time
 {
 	std::string tmp(STARTUP_MSG);
+
+
+	struct tm *currentTime = localtime(&self.tm.time);
+
+	setTimeDateControlHub();
+//	setTimeDate(currentTime);
+
+
+	while(1)
+	{
+		sleep(1);
+	}
 
 	init();
 
@@ -226,6 +244,12 @@ int main(void)		//TODO: set date and time
 /*-----------------------------------------------------------------------------
 * Local Function Definitions
 *---------------------------------------------------------------------------*/
+
+
+
+
+
+
 /* ----------------------------------------------------	*
  *	@kpWork Implementation:								*
  *	@brief:												*
@@ -253,7 +277,7 @@ void *kpWork(workBuf *work)
 		self.server.T3 =trainStationStates::REQUEST_BOOM_GATE_DOWN;
 		break;
 	case '3':
-		//UpdateNetworkTime();
+		self.server.updatedTime = time(NULL);
 		break;
 	case '4':
 		self.server.T1 =trafficLightStates::NSG;
@@ -342,6 +366,7 @@ void init(void)
 	write_string_ToFile(&tmp, CHLOG, "a+");
 
 	// starting server, keypad and lcd services.
+	setTimeDateControlHub();
 	serverInit();
 	keypadInit(20);
 	FT800_Init();
@@ -349,7 +374,6 @@ void init(void)
 
 
 }
-
 
 
 /* ----------------------------------------------------	*
@@ -364,7 +388,6 @@ void destroy(void)
 	self.client.living = false;
 	Unlock(self.client.Mtx);
 }
-
 
 /* ----------------------------------------------------	*
  *	@init_keypad Implementation:						*
@@ -558,6 +581,8 @@ void *serverReceiver(void *appData)
 
             // Locking sever mutex
     		Lock(self->server.Mtx);
+
+
         	switch(msg.ClientID)
         	{
         	case clients::TRAFFIC_L1:
@@ -565,6 +590,17 @@ void *serverReceiver(void *appData)
         		DEBUGF("Server->message received from Traffic light 1\n");
         		logIntersectionData(&msg);
         		replymsg.inter_data.currentState = self->server.T1;
+
+        		if (self->server.T1 == trafficLightStates::TIMEING_UPDATE)
+        		{
+        			// updating timing information
+					replymsg.timing.time = time(NULL);
+					replymsg.timing.morningPeakStart = self->server.morningOnPeak;
+					replymsg.timing.morningPeakFinish = self->server.morningOffPeak;
+					replymsg.timing.eveningPeakStart = self->server.eveningOnPeak;
+					replymsg.timing.eveningPeakFinish = self->server.eveningOffPeak;
+				}
+
                 self->server.T1 = trafficLightStates::DEFAULT_TLS;
                 MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
 
@@ -574,6 +610,17 @@ void *serverReceiver(void *appData)
         		DEBUGF("Server->message received from Traffic light 2\n");
         		logIntersectionData(&msg);
         		replymsg.inter_data.currentState = self->server.T2;
+
+        		if (self->server.T2 == trafficLightStates::TIMEING_UPDATE)
+        		{
+        			// updating timing information
+					replymsg.timing.time = time(NULL);
+					replymsg.timing.morningPeakStart = self->server.morningOnPeak;
+					replymsg.timing.morningPeakFinish = self->server.morningOffPeak;
+					replymsg.timing.eveningPeakStart = self->server.eveningOnPeak;
+					replymsg.timing.eveningPeakFinish = self->server.eveningOffPeak;
+				}
+
         		self->server.T2 = trafficLightStates::DEFAULT_TLS;
                 MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
 
@@ -583,6 +630,7 @@ void *serverReceiver(void *appData)
         		DEBUGF("Server->message received from Train Station 1\n");
         		logTrainData(&msg);
         		replymsg.train_data.currentState = self->server.T3;
+        		replymsg.timing.time = time(NULL);
         		self->server.T3 = trainStationStates::DEFAULT_TSS;
                 MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
 

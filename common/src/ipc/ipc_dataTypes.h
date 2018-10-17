@@ -74,8 +74,8 @@ enum trafficLightStates
     EWTG,                       // East/West Turn Green
     EWTY,                       // East/West Turn Yellow
     RED,                        // All Red
+	TIMEING_UPDATE,
     ERROR_1,                    // Error States 1
-								//TODO: Define Error states
     ERROR_2,                    // Error States 2
     ERROR_3,                    // Error States 3
     ERROR_4                     // Error States 4
@@ -115,20 +115,20 @@ typedef struct _controlHubTointersection
     trafficLightStates currentState;
 }controler2Intersection;
 
-typedef struct controler2Train
+typedef struct _controler2Train
 {
     trainStationStates currentState;
-};
+}controler2Train;
 
 typedef struct
 {
     time_t time;				// Gets the time
-	struct tm currentTime;		// Required time_t to get a full date and time
+	//struct tm currentTime;		// Required time_t to get a full date and time
 
-    time_t morningPeakStart;
-    time_t morningPeakFinish;
-    time_t eveningPeakStart;
-    time_t eveningPeakFinish;
+    uint8_t morningPeakStart;		//
+    uint8_t morningPeakFinish;
+    uint8_t eveningPeakStart;
+    uint8_t eveningPeakFinish;
 
 }systemTimeAlignment;
 
@@ -139,6 +139,8 @@ typedef struct
 	int ClientID; // our data (unique id from client)
 	controler2Intersection inter_data;
 	controler2Train train_data;
+	systemTimeAlignment timing;
+
 } _data;
 
 typedef struct
@@ -147,6 +149,7 @@ typedef struct
 	int ClientID; // our data (unique id from client)
 	controler2Intersection inter_data;
 	controler2Train train_data;
+	systemTimeAlignment timing;
 } _reply;
 
 

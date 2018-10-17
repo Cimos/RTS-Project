@@ -9,7 +9,9 @@
 #define SRC_I2C_I2C_HAL_H_
 
 #include "../FT800/FT800.h"
-#include "../../public/debug.h"
+//#include "../../public/debug.h"
+
+
 
 //#define NULL 0
 

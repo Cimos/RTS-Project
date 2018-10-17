@@ -22,6 +22,10 @@
 
 extern int errno;
 
+
+//#define DEBUGF printf("DEBUG->"); print
+#define DEBUGF //
+
 #define ACTIVE  0x00
 #define STANDBY 0x41
 #define SLEEP   0x42
