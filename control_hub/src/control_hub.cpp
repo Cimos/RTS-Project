@@ -312,9 +312,13 @@ void *kpWork(workBuf *work)
 	case 'C':
 		//TODO: get this working
 		RequestTrafficLightIncreasePeakHour();
+		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
+		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
 	case 'D':
 		RequestTrafficLightDecreasePeakHour();
+		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
+		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
 	case 'E':
 		break;
@@ -373,8 +377,8 @@ void init(void)
 	setTimeDateControlHub();
 	serverInit();
 	keypadInit(20);
-//	FT800_Init();
-//	splash_screen();
+	FT800_Init();
+	splash_screen();
 
 
 }
@@ -764,10 +768,10 @@ int printMenu(int mode)
 void RequestTrafficLightDecreasePeakHour(void)
 
 {
-	self.server.morningOnPeak--;
-	self.server.morningOffPeak--;
-	self.server.eveningOnPeak--;
-	self.server.eveningOffPeak--;
+	self.server.morningOnPeak-=3;
+	self.server.morningOffPeak-=3;
+	self.server.eveningOnPeak-=3;
+	self.server.eveningOffPeak-=3;
 }
 
 
@@ -779,9 +783,9 @@ void RequestTrafficLightDecreasePeakHour(void)
  * ---------------------------------------------------	*/
 void RequestTrafficLightIncreasePeakHour(void)
 {
-	self.server.morningOnPeak++;
-	self.server.morningOffPeak++;
-	self.server.eveningOnPeak++;
-	self.server.eveningOffPeak++;
+	self.server.morningOnPeak+=3;
+	self.server.morningOffPeak+=3;
+	self.server.eveningOnPeak+=3;
+	self.server.eveningOffPeak+=3;
 }
 
