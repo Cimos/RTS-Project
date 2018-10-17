@@ -260,10 +260,10 @@ int main(void)
 	threadInit(&client.clientInitThread);
 	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, &traffic);
 //
-	DelayTimer utimer(false, 0, 1000, 0, 0);
-	utimer.createTimer();
+//	DelayTimer utimer(false, 0, 1000, 0, 0);
+//	utimer.createTimer();
 
-//	usleep(1);
+	usleep(1);
 
 	Unlock(client.Mtx);
 
