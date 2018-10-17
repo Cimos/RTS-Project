@@ -182,6 +182,7 @@ DelayTimer boomGateTimer(true, 0, 3, 0, 3);
 DelayTimer inboundSensorFaultTimer(true, 0, 2, 0, 2);
 DelayTimer oneMilSecTimer(true, 1, 1000000,1,1000000);
 DelayTimer flashLEDTimer(true, 1, 4500000000, 1, 4500000000);
+DelayTimer oneSecTimer(true, 0, 1, 0, 1);
 
 
 /*-----------------------------------------------------------------------------
@@ -253,7 +254,7 @@ int main() {
 	pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
 	pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setstacksize (&keyPad_attr, 8000);
-	keyPad kp(false);						//create keypad object
+	keyPad kp;						//create keypad object
 	kp.registerCallback(keypad_cb);
 	kp.start(&keyPad_attr);			//start keypad
 
@@ -555,7 +556,7 @@ void trainStateMachine(){
 	}
 }
 
-//flash LED fucntion
+//flash LED function
 void flashLED(int LED_num)
 {
 	int led_num = LED_num;
@@ -617,7 +618,6 @@ int server()
 	int file_test = 0;
 
 	write_pid_chid_ToFile( my_file.PID, my_file.CHID, "/net/BBB_CimosDirect/fs/TrainServer.info", "w");
-
 
 	//**************************************************************************************************
 
@@ -706,19 +706,7 @@ int server()
 				continue;	// go back to top of while loop
 			}
 
-			// A message (presumably ours) received
-
-			// put your message handling code here and assemble a reply message
-			//sprintf(replymsg.buf, "Message %d received", msgnum);
-			//printf("Server received data packet with value of %c from client (ID:%d), ", msg.data, msg.ClientID);
-			//fflush(stdout);
-			//sleep(1); // Delay the reply by a second (just for demonstration purposes)
-
-			//printf("\n    -----> replying with: '%s'\n",replymsg.buf);
-
-
-			//MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
-
+			// Reply message
 			MsgReply(rcvid, EOK, &boomStatus, sizeof(boomStatus));
 		}
 		else
@@ -770,7 +758,8 @@ int _client(int serverPID, int serverChID, int nd)
 
 	while (!done){
 
-		sleep(1);			//TODO replace with timer
+		//sleep(1);			//TODO replace with timer
+		oneSecTimer.CreateTimer();
 		HUBmsg.train_data.currentState = (trainStationStates)trainStateToSend;
 
 		fflush(stdout);
@@ -785,7 +774,8 @@ int _client(int serverPID, int serverChID, int nd)
 		}
 		else
 		{ // now process the reply
-			cout << "HUB Reply: " << reply.train_data.currentState << endl;
+			//cout << "HUB Reply: " << reply.train_data.currentState << endl;
+			DEBUGF("client->(%d) reply message: %d", HUBmsg.ClientID, reply.train_data.currentState);
 
 			if((reply.train_data.currentState == 10)||(reply.train_data.currentState == 11)){
 				Lock(controlHubRqstMtx);
@@ -851,59 +841,59 @@ void *clientService(void *notUsed)
 	std::string fullFilePath(CONTROLHUB);
 	fullFilePath.append(CONTROLHUB_SERVER);
 
-	while(1)
+	while(true)
 	{
-		while(true)
+		//checking if file for server exists
+		do
 		{
-			//checking if file for server exists
-			do
-			{
-				DEBUGF("clientService->checking for file with train server details\n");
+			DEBUGF("clientService->checking for file with train server details\n");
 
-				fileExists = checkIfFileExists(fullFilePath.c_str());
-				timout.createTimer();
-
-			}while(!fileExists);
-
-			nD = read_pid_chid_FromFile(&pid, &chid, CONTROLHUB, CONTROLHUB_SERVER);
-
-			if (nD != 0)
-			{
-				break;
-				DEBUGF("clientService->Server file found with a valid node descriptor\n");
-			}
+			fileExists = checkIfFileExists(fullFilePath.c_str());
 			timout.createTimer();
-		}
 
-		Lock(client.Mtx);
-		client.serverPID = pid;
-		client.serverCHID = chid;
-		client.nodeDescriptor = nD;
-		Unlock(client.Mtx);
+		}while(!fileExists);
 
-		// start client service for train station
-		client.clientWorkThread.priority = 10;
-		threadInit(&client.clientWorkThread);
+		nD = read_pid_chid_FromFile(&pid, &chid, CONTROLHUB, CONTROLHUB_SERVER);
 
-		//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
-		_client(client.serverPID, client.serverCHID, client.nodeDescriptor);
-		// wait for working thread to finish
-		//pthread_join(client.clientWorkThread.thread, NULL);
-
-
-		//locking mutex
-		Lock(client.Mtx);
-
-		// Check if living and if node has failed.. i.e. a drop.
-		if (client.living == 0)
+		if (nD != 0)
 		{
-			Unlock(client.Mtx);
-			return NULL;
+			break;
+			DEBUGF("clientService->Server file found with a valid node descriptor\n");
 		}
-		// reconnection counter
-		// create longer delay?
-		Unlock(client.Mtx);
+		timout.createTimer();
 	}
+
+	Lock(client.Mtx);
+	client.serverPID = pid;
+	client.serverCHID = chid;
+	client.nodeDescriptor = nD;
+	Unlock(client.Mtx);
+
+	// start client service for train station
+	client.clientWorkThread.priority = 10;
+	threadInit(&client.clientWorkThread);
+
+	//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
+	_client(client.serverPID, client.serverCHID, client.nodeDescriptor);
+	// wait for working thread to finish
+	//pthread_join(client.clientWorkThread.thread, NULL);
+
+
+	//locking mutex
+	Lock(client.Mtx);
+
+	// Check if living and if node has failed.. i.e. a drop.
+	if (client.living == 0)
+	{
+		Unlock(client.Mtx);
+		return NULL;
+	}
+	// create a thread that is this function and then exit this thread.
+	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, NULL);
+
+	// reconnection counter
+	// create longer delay?
+	Unlock(client.Mtx);
 
 	return NULL;
 }
