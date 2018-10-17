@@ -84,11 +84,12 @@ int setTimeDateControlHub(void)
 	return 0;
 }
 
-bool checkIfpeak(_reply msg, systemTimeAlignment *timing)
+bool checkIfpeak(time_t *_currenttime, systemTimeAlignment *timing)
 {
-	std::string tempString;
 	char buf[5] = {};
-	struct tm *currentTime = localtime(&timing->time);
+
+
+	struct tm *currentTime = localtime(((_currenttime == NULL) ? &timing->time : _currenttime));
 
     strftime(buf, 5, "%H", currentTime);
     uint8_t currentHour = atoi(buf);

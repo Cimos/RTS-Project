@@ -29,7 +29,7 @@
 *---------------------------------------------------------------------------*/
 int setTimeDate(struct tm* _tm);
 int setTimeDateControlHub(void);
-bool checkIfpeak(_reply msg, systemTimeAlignment *timing);
+bool checkIfpeak(time_t *_currenttime, systemTimeAlignment *timing);
 
 
 /*-----------------------------------------------------------------------------
