@@ -759,7 +759,7 @@ int _client(int serverPID, int serverChID, int nd)
 	while (!done){
 
 		//sleep(1);			//TODO replace with timer
-		oneSecTimer.CreateTimer();
+		oneSecTimer.createTimer();
 		HUBmsg.train_data.currentState = (trainStationStates)trainStateToSend;
 
 		fflush(stdout);
