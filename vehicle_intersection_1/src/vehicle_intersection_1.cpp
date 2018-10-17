@@ -157,8 +157,8 @@ struct
 	pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
 	_thread clientWorkThread = {0};
 	_thread clientInitThread = {0};
-	char *workingthreadName = "Intersection 1 Work";
-	char *servicethreadName = "Intersection 1 Service";
+	char *workingthreadName = "Intersection 1 Work Train";
+	char *servicethreadName = "Intersection 1 Service Train";
 	int living = 1;
 	int serverPID = 0;
 	int serverCHID = 0;
