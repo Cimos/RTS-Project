@@ -9,6 +9,9 @@
 
 
 #include "../../public/lcdThread.h"
+#include "lcdThread.h"
+#include <string.h>
+#include <iostream>
 #include <unistd.h>
 
 
@@ -71,6 +74,45 @@ void splash_screen()
 		make_string(240,106,31,OPT_CENTER,COLOR_RGB(255,255,255), "RTS Project 2018");
 		make_string(240,166,22,OPT_CENTER,COLOR_RGB(255,255,255), "Simon Maddison, Shawn Buschmann, Michael Stekla");
 		end_screen();
+}
+
+
+
+
+
+void screen1(int t1, int t2, int i1, bool b)
+{
+	std::string traffic1("T1 State =");
+	traffic1.push_back((char)t1);
+
+	std::string traffic2("T2 State =");
+	traffic2.push_back((char)t2);
+
+	std::string inter1("I1 State =");
+	inter1.push_back((char)i1);
+
+
+
+	start_screen(CLEAR_COLOR_RGB(0,0,0));
+
+	make_string(50,68,28,OPT_CENTERY,COLOR_RGB(255,0,0), (char*)traffic1.c_str());
+	make_string(50,136,28,OPT_CENTERY,COLOR_RGB(0,255,0), (char*)traffic2.c_str());
+	make_string(50,204,28,OPT_CENTERY,COLOR_RGB(0,0,255), (char*)inter1.c_str());
+
+	if (b)
+	{
+		make_string(240,136,28,OPT_CENTERY,COLOR_RGB(255,255,255), "We love RTS?");
+	}
+	else
+	{
+		make_string(240,136,28,0,COLOR_RGB(255,255,255), "We hate RTS?");
+	}
+
+	make_button(350, 200, 450, 260, 22, OPT_CENTERY, COLOR_RGB(255,255,255),  "Click Me");
+
+	end_screen();
+
+
 }
 
 

@@ -22,6 +22,7 @@
 #include <strings.h>
 
 #include "../i2c/i2c_HAL.h"
+#include "../ipc/ipc_dataTypes.h"
 
 
 #ifndef SRC_HARDWARE_SUPPORT_FT800_LCDTHREAD_H_
@@ -48,9 +49,7 @@ typedef struct {
 void lcd_2();
 
 void splash_screen();
-
-
-
+void screen1(int t1, int t2, int i1, bool b);
 
 
 

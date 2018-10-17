@@ -146,10 +146,10 @@ struct self
 		uint8_t eveningOffPeak = 111;	// 6:60pm
 
 		// Updates timing information of states of lights
-		trafficLightTiming TrafficSequenceT1 = {10,5,10,5,3};
+		trafficLightTiming TrafficSequenceT1 = {5,3,5,3,1};
 
 		// Updates timing information of states of lights
-		trafficLightTiming TrafficSequenceT2 = {12,7,10,5,3};
+		trafficLightTiming TrafficSequenceT2 = {6,4,5,3,1};
 	}server;
 
 
@@ -171,6 +171,17 @@ struct self
 	_data* msg;
 	_data *reply;
 	}client;
+
+
+	struct
+	{
+		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+		trafficLightStates T1 =trafficLightStates::DEFAULT_TLS;
+		trafficLightStates T2 =trafficLightStates::DEFAULT_TLS;
+		trainStationStates T3 =trainStationStates::DEFAULT_TSS;
+		WorkerThread screen;
+
+	}lcd;
 
 }self;
 
@@ -212,24 +223,15 @@ int printMenu(int mode);
 void RequestTrafficLightDecreasePeakHour(void);
 void RequestTrafficLightIncreasePeakHour(void);
 
+void *screen_work(workBuf *work);
+
+
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
 int main(void)		//TODO: set date and time
 {
 	std::string tmp(STARTUP_MSG);
-
-//
-//	struct tm *currentTime = localtime(&self.tm.time);
-//
-//	setTimeDateControlHub();
-////	setTimeDate(currentTime);
-//
-//
-//	while(1)
-//	{
-//		sleep(1);
-//	}
 
 	init();
 
@@ -239,9 +241,28 @@ int main(void)		//TODO: set date and time
 
 // SCREEN:
 
+
+	char buf[4] = {};
+
+//	workBuf _work;
+//	_work.data = new std::string;
+
+//
+//	_work.data->append(buf);
+
+	int num = 1;
+
 	while(1)
 	{
-		sleep(1);
+		sleep(2);
+		Lock(self.server.Mtx);
+		sprintf(buf, "%d%d%d", self.lcd.T1, self.lcd.T2, self.lcd.T3);
+		self.lcd.screen.doWork(buf, 4, num);
+		Unlock(self.server.Mtx);
+		if (num == 1)
+			num = 0;
+		else
+			num = 1;
 	}
 
 
@@ -258,7 +279,11 @@ int main(void)		//TODO: set date and time
 
 
 
+void *screen_work(workBuf *work)
+{
+	screen1((int)work->data->c_str()[0],(int) work->data->c_str()[1], (int)work->data->c_str()[2], (bool)work->mode);
 
+}
 
 /* ----------------------------------------------------	*
  *	@kpWork Implementation:								*
@@ -318,25 +343,24 @@ void *kpWork(workBuf *work)
 	case 'C':
 		//TODO: get this working
 		RequestTrafficLightIncreasePeakHour();
-		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
-		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
+
 		break;
 	case 'D':
 		RequestTrafficLightDecreasePeakHour();
-		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
-		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
 	case 'E':
 		// T1,T2 standard
-		self.server.TrafficSequenceT1 = {10,5,10,5,3};
-		self.server.TrafficSequenceT1 = {12,7,10,5,3};
+		// Updates timing information of states of lights
+
+		self.server.TrafficSequenceT1 = {5,3,5,3,1};
+		self.server.TrafficSequenceT2 = {6,4,5,3,1};
 		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
 		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
 	case 'F':
 		//T1,T2 doubles
-		self.server.TrafficSequenceT1 = {20,10,20,10,6};
-		self.server.TrafficSequenceT1 = {24,14,20,10,6};
+		self.server.TrafficSequenceT1 = {10,5,10,5,3};
+		self.server.TrafficSequenceT2 = {12,7,10,5,3};
 		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
 		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
@@ -393,8 +417,10 @@ void init(void)
 	setTimeDateControlHub();
 	serverInit();
 	keypadInit(20);
-//	FT800_Init();
-//	splash_screen();
+	FT800_Init();
+	splash_screen();
+	self.lcd.screen.setWorkFunction(screen_work);
+	sleep(1);
 
 
 }
@@ -603,10 +629,28 @@ void *serverReceiver(void *appData)
 
             DEBUGF("Server->logging received message\n");
 
+
+    		Lock(self->lcd.Mtx);
+    		switch(msg.ClientID)
+    		{
+				case clients::TRAFFIC_L1:
+					self->lcd.T1 = msg.inter_data.currentState;
+					break;
+				case clients::TRAFFIC_L2:
+					self->lcd.T2 = msg.inter_data.currentState;
+					break;
+				case clients::TRAIN_I1:
+					self->lcd.T3 = msg.train_data.currentState;
+					break;
+				default:
+					break;
+    		}
+    		Unlock(self->server.Mtx);
+
+
+
             // Locking sever mutex
-    		Lock(self->server.Mtx);
-
-
+    		Lock(self->lcd.Mtx);
         	switch(msg.ClientID)
         	{
         	case clients::TRAFFIC_L1:
@@ -785,12 +829,13 @@ int printMenu(int mode)
  *	@return:											*
  * ---------------------------------------------------	*/
 void RequestTrafficLightDecreasePeakHour(void)
-
 {
 	self.server.morningOnPeak-=3;
 	self.server.morningOffPeak-=3;
 	self.server.eveningOnPeak-=3;
 	self.server.eveningOffPeak-=3;
+	self.server.T1 = trafficLightStates::TIMEING_UPDATE;
+	self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 }
 
 
@@ -806,5 +851,7 @@ void RequestTrafficLightIncreasePeakHour(void)
 	self.server.morningOffPeak+=3;
 	self.server.eveningOnPeak+=3;
 	self.server.eveningOffPeak+=3;
+	self.server.T1 = trafficLightStates::TIMEING_UPDATE;
+	self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 }
 
