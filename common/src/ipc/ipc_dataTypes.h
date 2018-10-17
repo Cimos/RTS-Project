@@ -113,6 +113,8 @@ typedef struct _controlHubTointersection
 {
     trafficLightTiming lightTiming;
     trafficLightStates currentState;
+    bool trainFault_int1;
+    bool trainFault_int2;
 }controler2Intersection;
 
 typedef struct _controler2Train

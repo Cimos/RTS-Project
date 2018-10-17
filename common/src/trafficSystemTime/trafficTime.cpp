@@ -33,8 +33,8 @@
 * Definitions
 *---------------------------------------------------------------------------*/
 
-//#define DEBUGF printf("DEBUG->"); printf
-#define DEBUGF //
+#define DEBUGF printf("DEBUG->"); printf
+//#define DEBUGF //
 
 /*-----------------------------------------------------------------------------
 * Global Function Definitions

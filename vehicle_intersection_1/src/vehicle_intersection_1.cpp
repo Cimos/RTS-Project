@@ -30,6 +30,8 @@
 #include "DelayTimer.h"
 #include "file_io.h"
 #include "ipc_dataTypes.h"
+#include <time.h>
+#include "trafficTime.h"
 
 #include "debug.h"
 #include <sys/iomsg.h>
@@ -46,8 +48,6 @@
 #define TIMER_STRAIGHT	3
 #define TIMER_TURN		2
 #define TIMER_YELLOW	1
-
-#define DEBUG_RUN_SERVER 1
 
 #define SEM_FLAGS O_CREAT | O_EXCL
 
@@ -156,6 +156,9 @@ keyPad kp;
 TRAFFIC_SENSORS _sensor;
 trafficLightStates _current_state;
 
+bool _peakhour;
+bool _train_fault;
+
 
 /*-----------------------------------------------------------------------------
 * Threads Declarations
@@ -165,8 +168,6 @@ void *th_sensors(void *Data);
 void *th_ipc_controlhub_client(void *Data);
 void *th_ipc_train_client(void *Data);
 void *clientService(void *notUsed);
-
-void *th_fakeserver(void *Data);	// Debug
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -180,6 +181,7 @@ void threadInit(_thread *th);
 void state_display(traffic_data *data);
 void state_perform(traffic_data *data);
 void state_transition(traffic_data *data);
+void state_transition_peak(traffic_data *data);
 
 void init_traffic_data(traffic_data *data);
 
@@ -195,6 +197,9 @@ int main(void)
 	printf("TLI-1 - Main started.\n");
 
 	pingpong.setWorkFunction(work_cb);
+
+	_peakhour = false;
+	_train_fault = false;
 
 	// Setup Keypad
  	pthread_attr_t keyPad_attr;
@@ -213,15 +218,13 @@ int main(void)
 	// Setup state machine
 	traffic_data traffic;
 	init_traffic_data(&traffic);
-	_state = traffic.current_state;
+	_current_state = traffic.current_state;
 
 	// Clear any old semaphores with the same name
 	sem_unlink(traffic.sem_name);
 
 	// Create the named Semaphore
 	traffic.sem = *sem_open(traffic.sem_name, SEM_FLAGS, S_IRWXG, 1); // Group access, 1 = unlocked.
-
-#if DEBUG_RUN_SERVER == 1
 
 	// Setup Control Hub Server Connection
 //	traffic.ndc = read_pid_chid_FromFile( &traffic.pidc, &traffic.chidc, CONTROLHUB, CONTROLHUB_SERVER);
@@ -235,9 +238,6 @@ int main(void)
 	// Confirm Control Hub Server Connection
 //	printf("Train Server PID = %d\tCID = %d\n", traffic.pidt, traffic.chidt);
 
-#else
-	pthread_t th_fake;
-#endif // DEBUG_NO_SERVER == 1
 
 	// Declare Threads
 	pthread_t th_traffic_sm;
@@ -259,15 +259,13 @@ int main(void)
 	client.clientWorkThread.priority = 10;
 	threadInit(&client.clientInitThread);
 	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, &traffic);
+//
+	DelayTimer utimer(false, 0, 1000, 0, 0);
+	utimer.createTimer();
 
-	usleep(1); // TODO - replace with QNX timer
+//	usleep(1);
 
 	Unlock(client.Mtx);
-
-#if DEBUG_RUN_SERVER == 0
-	pthread_create(&th_fake, NULL, th_fakeserver, &traffic);
-	pthread_join(th_fake, &retval);
-#endif // DEBUG_RUN_SERVER == 0
 
 	// Join Threads
 	pthread_join(th_traffic_sm, &retval);
@@ -308,7 +306,11 @@ void *th_statemachine(void *Data)
 		state_perform( data );
 
 		// Check if a state transition is needed
-		if (data->change_state == 1)
+		if (_peakhour)
+		{
+			state_transition_peak( data );
+		}
+		else if (data->change_state == 1)
 		{
 			// Change state if one of the sensors has been tripped
 			state_transition( data );
@@ -381,7 +383,7 @@ void *th_sensors(void *Data)
 			data->change_state = true;
 		}
 
-		data->current_state = _state;
+//		data->current_state = _state;
 
 		sem_post(&data->sem);
 
@@ -393,36 +395,10 @@ void *th_sensors(void *Data)
 	return EXIT_SUCCESS;
 }
 
-void *th_fakeserver(void *Data)
-{
-	printf("TLI-1 - Fake Server - Thread Started\n");
-
-	// Cast pointer
-	traffic_data *data = (traffic_data*) Data;
-
-	// Create Timer
-	DelayTimer timer(false, 0, 60, 0, 0);
-
-	// Wait for timer to finish
-	timer.createTimer();
-
-	// Send signal to stop system
-	data->keep_running = 0;
-
-	printf("TLI-1 - Fake Server - Thread Terminating\n");
-	return EXIT_SUCCESS;
-}
-
-
 void *clientService(void *Data)
 {
 	// Cast the pointer
 	traffic_data *data = (traffic_data*) Data;
-
-
-	Lock(client.Mtx);
-	printf("\t\tbbbbb CurrentState = %d\n", (int) data->current_state);
-	Unlock(client.Mtx);
 
 	bool fileExists = false;
 	int nD = -1;
@@ -438,155 +414,64 @@ void *clientService(void *Data)
 	std::string fullFilePath(CONTROLHUB);
 	fullFilePath.append(CONTROLHUB_SERVER);
 
-	while(true)
+	while(1)
 	{
-		//checking if file for server exists
-		do
+		while(true)
 		{
-			DEBUGF("clientService->checking for file with train server details\n");
+			//checking if file for server exists
+			do
+			{
+				DEBUGF("clientService->checking for file with train server details\n");
 
-			fileExists = checkIfFileExists(fullFilePath.c_str());
+				fileExists = checkIfFileExists(fullFilePath.c_str());
+				timout.createTimer();
+
+			}while(!fileExists);
+
+			nD = read_pid_chid_FromFile(&pid, &chid, CONTROLHUB, CONTROLHUB_SERVER);
+
+			if (nD != 0)
+			{
+				break;
+				DEBUGF("clientService->Server file found with a valid node descriptor\n");
+			}
 			timout.createTimer();
-
-		}while(!fileExists);
-
-		nD = read_pid_chid_FromFile(&pid, &chid, CONTROLHUB, CONTROLHUB_SERVER);
-
-		if (nD != 0)
-		{
-			break;
-			DEBUGF("clientService->Server file found with a valid node descriptor\n");
 		}
-		timout.createTimer();
-	}
 
-	Lock(client.Mtx);
-	client.serverPID = pid;
-	client.serverCHID = chid;
-	client.nodeDescriptor = nD;
-	Unlock(client.Mtx);
-
-	// start client service for train station
-	client.clientWorkThread.priority = 10;
-	threadInit(&client.clientWorkThread);
-
-	//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
-	_client(client.serverPID, client.serverCHID, client.nodeDescriptor, &data);
-	// wait for working thread to finish
-	//pthread_join(client.clientWorkThread.thread, NULL);
-
-
-	//locking mutex
-	Lock(client.Mtx);
-
-	// Check if living and if node has failed.. i.e. a drop.
-	if (client.living == 0)
-	{
+		Lock(client.Mtx);
+		client.serverPID = pid;
+		client.serverCHID = chid;
+		client.nodeDescriptor = nD;
 		Unlock(client.Mtx);
-		return NULL;
+
+		// start client service for train station
+		client.clientWorkThread.priority = 10;
+		threadInit(&client.clientWorkThread);
+
+		//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
+		_client(client.serverPID, client.serverCHID, client.nodeDescriptor, &data);
+		// wait for working thread to finish
+		//pthread_join(client.clientWorkThread.thread, NULL);
+
+
+		//locking mutex
+		Lock(client.Mtx);
+
+		// Check if living and if node has failed.. i.e. a drop.
+		if (client.living == 0)
+		{
+			Unlock(client.Mtx);
+			return NULL;
+		}
+		// create a thread that is this function and then exit this thread.
+	//	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, &data);
+
+		// reconnection counter
+		// create longer delay?
+		Unlock(client.Mtx);
 	}
-	// create a thread that is this function and then exit this thread.
-	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, &data);
-
-	// reconnection counter
-	// create longer delay?
-	Unlock(client.Mtx);
-
 	return NULL;
 }
-
-
-//void *th_ipc_controlhub_client(void *Data)
-//{
-//	printf("TLI-1 - Control Hub Client - Thread Started\n");
-//
-//	// Cast pointer
-//	traffic_data *data = (traffic_data*) Data;
-//
-//	// Create Timer
-//	DelayTimer server_rate(false, 0, 1, 0, 0);
-//
-//	// Declare message variables
-//	_data 	msg;
-//	_reply 	reply;
-//
-//	// Set client ID
-//	msg.ClientID = TRAFFIC_L1; // ID 1
-//
-//	// Print debug
-//	printf("   --> Trying to connect (server) process which has a PID: %d\n", data->pidc);
-//	printf("   --> on channel: %d\n\n", data->chidc);
-//
-//	// Set up message passing channel
-//	int server_coid = ConnectAttach(data->ndc, data->pidc, data->chidc, _NTO_SIDE_CHANNEL, 0);
-//	if (server_coid == -1)
-//	{
-//		printf("\n    ERROR, could not connect to server!\n\n");
-//		return 0; 	// TODO - Exit with failure
-//	}
-//
-//	// Confirm connection
-//	printf("Connection established to process with PID:%d, CHID:%d\n", data->pidc, data->chidc);
-//
-//	// We would have pre-defined data to stuff here
-//	msg.hdr.type = 0x00;
-//	msg.hdr.subtype = 0x00;
-//
-//	while (data->keep_running)
-//	{
-//		// set up data packet
-//		msg.inter_data.currentState = data->current_state;
-//		msg.inter_data.lightTiming = data->timing;
-//
-//		// Print data packet to send
-//		printf("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.inter_data.currentState);
-//		fflush(stdout);
-//
-//		// Try sending the message
-//		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
-//		{
-//			// Reply not received from server
-//			printf("\tError data '%d' NOT sent to server\n", msg.inter_data.currentState);
-//		}
-//		else
-//		{
-//			// Process the reply
-//			printf("\t-->Server reply is: '%d'\n", reply.inter_data.currentState);
-//
-//			// Handle state requests
-//			switch (reply.inter_data.currentState)
-//			{
-//			case NSG:
-//				_sensor.ns_straight = true;
-//				break;
-//			case NSTG:
-//				_sensor.ns_turn = true;
-//				break;
-//			case EWG:
-//				_sensor.ew_straight = true;
-//				break;
-//			case EWTG:
-//				_sensor.ew_turn = true;
-//			default:
-//				break;
-//			}
-//
-//			// Update traffic light timing
-//			reply.inter_data.lightTiming = data->timing;
-//
-//			// TODO - handle peak hour traffic changes
-//		}
-//
-//		// Slow down the message rate
-//		server_rate.createTimer();
-//	}
-//
-//	// Close the connection
-//	ConnectDetach(server_coid);
-//
-//	printf("TLI-1 - Control Hub Client - Thread Terminated\n");
-//	return EXIT_SUCCESS;
-//}
 
 void *th_ipc_train_client(void *Data)
 {
@@ -606,7 +491,7 @@ void *th_ipc_train_client(void *Data)
 	if (server_coid == -1)
 	{
 		printf("\n    ERROR, could not connect to server!\n\n");
-		return 0; 	// TODO - Exit with failure
+		return 0;
 	}
 
 	// Confirm connection
@@ -623,6 +508,10 @@ void *th_ipc_train_client(void *Data)
 		{
 			// Reply not received from server
 			printf("\tError data '%d' NOT sent to server\n", message);
+
+//			_sensor.train = true;
+			_train_fault = true;
+
 		}
 		else
 		{
@@ -631,6 +520,9 @@ void *th_ipc_train_client(void *Data)
 
 			// Update train server
 			_sensor.train = reply_train;
+
+			//
+			_train_fault = false;
 		}
 
 		// Slow down the message rate
@@ -654,9 +546,9 @@ int _client(int serverPID, int serverChID, int nd, void *Data)
 	// Cast pointer
 	traffic_data *data = (traffic_data*) Data;
 
-	Lock(client.Mtx);
-	printf("\t\tccccc CurrentState = %d\n", data->current_state);
-	Unlock(client.Mtx);
+//	Lock(client.Mtx);
+//	printf("\t\tccccc CurrentState = %d\n", _current_state);
+//	Unlock(client.Mtx);
 
 	printf("Client running\n");
 	//client_data msg;
@@ -694,9 +586,10 @@ int _client(int serverPID, int serverChID, int nd, void *Data)
 	while (!done)
 	{
 		// set up data packet
-		msg.inter_data.currentState = data->current_state;
+		msg.inter_data.currentState = _current_state;
+		msg.inter_data.trainFault_int1 = _train_fault;
 
-		printf("data->current_state = %d\n", data->current_state);
+//		printf("data->current_state = %d\n", data->current_state);
 
 		printf("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.inter_data.currentState);
 
@@ -729,14 +622,20 @@ int _client(int serverPID, int serverChID, int nd, void *Data)
 				break;
 			case EWTG:
 				_sensor.ew_turn = true;
+			case TIMEING_UPDATE:
+				setTimeDate( localtime(&reply.timing.time) );
+				_peakhour = checkIfpeak(NULL, &reply.timing);
 			default:
 				break;
 			}
 
 			// Update traffic light timing
-			data->timing = reply.inter_data.lightTiming; // TODO - wrong struct implementation, doesn't update variable
+			data->timing = reply.inter_data.lightTiming; // TODO - check if wrong struct implementation, doesn't update variable
+		}
 
-			// TODO - handle peak hour traffic changes
+		if (_peakhour)
+		{
+			printf("Peak Hour ON\n");
 		}
 
 		// Slow down the message rate
@@ -1288,6 +1187,123 @@ void state_transition(traffic_data *data)
 		printf("state_transition: Unknown state\n");
 	}
 	fflush(stdout);
+
+	_current_state = data->current_state;
+
+	sem_post(&data->sem);
+}
+
+void state_transition_peak(traffic_data *data)
+{
+	sem_wait(&data->sem);
+
+	// Transition States
+	data->prev_state = data->current_state;
+	data->current_state = data->next_state;
+
+	// Load Next State
+	switch(data->current_state)
+	{
+	case DEFAULT_TLS:
+		// Initial State
+		data->next_state = NSG;
+		break;
+	case NSG:
+		// North South Green
+		data->next_state = NSY;
+		break;
+	case NSY:
+		// North South Yellow
+		data->next_state = RED;
+		break;
+	case NSTG:
+		// North South Turn Green
+		data->next_state = NSTY;
+		break;
+	case NSTY:
+		// North South Turn Yellow
+		data->next_state = RED;
+		break;
+	case EWG:
+		// East West Green
+		data->next_state = EWY;
+		break;
+	case EWY:
+		// East West Yellow
+		data->next_state = RED;
+		break;
+	case EWTG:
+		// East West Turn Green
+		data->next_state = EWTY;
+		break;
+	case EWTY:
+		// East West Turn Yellow
+		data->next_state = RED;
+		break;
+	case RED:		// TODO - check logic of transitions below
+		// All Red State
+		if (data->prev_state == NSY)
+		{
+			if (data->sensors.train == 1)
+			{
+				// Train is present
+				data->next_state = EWG;
+			}
+			else
+			{
+				// Car on EW wants to turn
+				data->next_state = EWTG;
+			}
+		}
+		else if (data->prev_state == EWTY)
+		{
+			data->next_state = EWG;
+		}
+		else if (data->prev_state == EWY)
+		{
+			data->next_state = NSTG;
+		}
+		else if (data->prev_state == NSTY)
+		{
+			if (data->sensors.train == 1)
+			{
+				// Train is present
+				data->next_state = EWG;
+			}
+			else
+			{
+				// NS car wants to go straight or NS pedestrian wants to cross
+				data->next_state = NSG;
+			}
+		}
+		else if (data->prev_state == RED)
+		{
+			printf("\tERROR - Transition Triggered without sensor data\n");
+		}
+		else
+		{
+			printf("ERROR - Something really bad has happened with state transitions");
+		}
+
+		// Reset sensors after transitions have occurred
+		reset_sensors();
+
+		break;
+	case ERROR_1:
+	case ERROR_2:
+	case ERROR_3:
+	case ERROR_4:
+		// Error State
+		printf("state_transition: ERROR State\n");
+		break;
+	default:
+		// Unknown State
+		printf("state_transition: Unknown state\n");
+	}
+	fflush(stdout);
+
+	_current_state = data->current_state;
+
 	sem_post(&data->sem);
 }
 
