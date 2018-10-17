@@ -157,8 +157,8 @@ struct
 	pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
 	_thread clientWorkThread = {0};
 	_thread clientInitThread = {0};
-	char *workingthreadName = "Intersection 2 Work";
-	char *servicethreadName = "Intersection 2 Service";
+	char *workingthreadName = "Intersection 2 Work Train";
+	char *servicethreadName = "Intersection 2 Service Train";
 	int living = 1;
 	int serverPID = 0;
 	int serverCHID = 0;
@@ -185,7 +185,9 @@ void *th_statemachine(void *Data);
 void *th_sensors(void *Data);
 void *th_ipc_controlhub_client(void *Data);
 void *th_ipc_train_client(void *Data);
-void *clientService(void *notUsed);
+
+void *clientService(void *Data);
+void *clientServiceTrain(void *Data);
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -278,6 +280,17 @@ int main(void)
 	// This needs to be a usleep(1) to start the client properly
 	usleep(1);
 	Unlock(client.Mtx);
+
+	// Create Thread for train client
+	Lock(client2.Mtx);
+	client2.clientInitThread.priority = 10;
+	client2.clientWorkThread.priority = 10;
+	threadInit(&client2.clientInitThread);
+	pthread_create(&client2.clientInitThread.thread, &client.clientInitThread.attr, clientServiceTrain, &traffic);
+
+	// This needs to be a usleep(1) to start the client properly
+	usleep(1);
+	Unlock(client2.Mtx);
 
 	// Join Threads
 	pthread_join(th_traffic_sm, &retval);

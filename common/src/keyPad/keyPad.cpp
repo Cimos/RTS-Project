@@ -50,7 +50,7 @@
 #define AM335X_GPIO1_BASE            (size_t)   0x4804C000
 
 
-#define PINMODE2
+//#define PINMODE2
 
 #ifdef PINMODE2
 #define SD0 (1<<28)  // SD0 is connected to GPIO1_28		pin 12
