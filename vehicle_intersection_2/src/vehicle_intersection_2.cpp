@@ -45,9 +45,9 @@
 //#define SIMON
 #define MICHAEL
 
-#define TIMER_STRAIGHT	3
-#define TIMER_TURN		2
-#define TIMER_YELLOW	1
+#define TIMER_STRAIGHT	10
+#define TIMER_TURN		5
+#define TIMER_YELLOW	3
 
 #define SEM_FLAGS O_CREAT | O_EXCL
 
@@ -1307,7 +1307,7 @@ void init_traffic_data(traffic_data *data)
 
 	// Initialize Timing
 	data->timing =	{
-			TIMER_STRAIGHT,	// NS Straight
+			TIMER_STRAIGHT*2,	// NS Straight
 			TIMER_TURN,		// NS Turn
 			TIMER_STRAIGHT,	// EW Straight
 			TIMER_TURN,		// EW Turn
