@@ -151,6 +151,24 @@ struct
 	_data *reply;
 }client;
 
+struct
+{
+	WorkerThread client;
+	pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+	_thread clientWorkThread = {0};
+	_thread clientInitThread = {0};
+	char *workingthreadName = "Intersection 2 Work";
+	char *servicethreadName = "Intersection 2 Service";
+	int living = 1;
+	int serverPID = 0;
+	int serverCHID = 0;
+	int *server_coid = 0;
+	int nodeDescriptor = 0;
+	trainStationStates Train1 = trainStationStates::DEFAULT_TSS;
+	_data* msg;
+	_data *reply;
+}client2;
+
 WorkerThread pingpong;
 keyPad kp;
 TRAFFIC_SENSORS _sensor;
