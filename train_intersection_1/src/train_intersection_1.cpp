@@ -516,7 +516,7 @@ void trainStateMachine(){
 			{
 				hubCommand = false;
 			}*/
-			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2)&&(controlHubRqst == 10)) //(hubCommand == false) && (controlHubRqst == 10)
+			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2)&&(controlHubRqst == 10))
 			{
 				resetControlHubRqst();
 				currentState = boomgateUpState;
@@ -610,7 +610,6 @@ int server()
 	printf("  --> Process ID   : %d \n", serverPID);
 	printf("  --> Channel ID   : %d \n", chid);
 
-	//**************************************************************************************************
 	// create file and populate with PID and CHID
 	FILE *fp;
 	file_params my_file;
@@ -619,8 +618,6 @@ int server()
 	int file_test = 0;
 
 	write_pid_chid_ToFile( my_file.PID, my_file.CHID, "/net/BBB_CimosDirect/fs/TrainServer.info", "w");
-
-	//**************************************************************************************************
 
 	int rcvid = 0, msgnum = 0;  	// no message received yet
 	int Stay_alive = 0, living = 0;	// server stays running (ignores _PULSE_CODE_DISCONNECT request)
