@@ -166,7 +166,7 @@ my_data controlHubMsg;
 bool LED_retval = false;
 WorkerThread serverWorker;
 char serverRead = '0';
-bool boomStatus = true;	//true = boom down, false = boom up
+int boomStatus = true;	//true = boom down, false = boom up
 
 // connection data (you may need to edit this)
 int HUBserverPID = 0;	// CHANGE THIS Value to PID of the server process
@@ -176,6 +176,8 @@ int trainStateToSend = trainStationStates::DEFAULT_TSS;
 pthread_mutex_t controlHubRqstMtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t boomGateStatusMTX = PTHREAD_MUTEX_INITIALIZER;
 int controlHubRqst = 0;
+
+int _chid;
 
 //timer setup
 DelayTimer boomGateTimer(true, 0, 3, 0, 3);
@@ -195,6 +197,8 @@ void Client_Start(int prio);
 void *clientService(void *notUsed);
 int clientConnect(int serverPID,  int serverChID, int nodeDescriptor);
 void clientDisconnect(int server_coid);
+void *serverReceiver(void *chid);
+
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
@@ -213,6 +217,11 @@ int _client(int serverPID, int serverChID, int nd);
 void resetControlHubRqst();
 
 void threadInit(_thread *th);
+
+void serverInit(void);
+
+
+
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
@@ -250,7 +259,7 @@ int main() {
 	struct sched_param keyPad_param;
 	pthread_attr_init(&keyPad_attr);
 	pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
-	keyPad_param.sched_priority = 6;
+	keyPad_param.sched_priority = 5;
 	pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
 	pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setstacksize (&keyPad_attr, 8000);
@@ -265,9 +274,11 @@ int main() {
 	pthread_create(&SMThread, NULL, trainStateMachine_ex, NULL);
 
 	//setup server thread
-	pthread_t serverThread;
-	void *serverThreadRetval;
-	pthread_create(&serverThread, NULL, server_ex, NULL);
+//	pthread_t serverThread;
+//	void *serverThreadRetval;
+//	pthread_create(&serverThread, NULL, server_ex, NULL);
+
+	serverInit();
 
 	pthread_t clientThread;
 	void *clientThreadRetval;
@@ -291,7 +302,7 @@ int main() {
 
 	//close threads
 	pthread_join(SMThread, &SMThreadRetval);
-	pthread_join(serverThread, &serverThreadRetval);
+//	pthread_join(serverThread, &serverThreadRetval);
 	//pthread_join(clientThread, &clientThreadRetval);
 
 
@@ -516,8 +527,15 @@ void trainStateMachine(){
 			{
 				hubCommand = false;
 			}*/
-			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2)&&(controlHubRqst == 10))
+//			if (!(train_1_arrive_1 && train_1_arrive_2 && train_2_arrive_1 && train_2_arrive_2))
+
+			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2)) //(hubCommand == false) && (controlHubRqst == 10)
 			{
+				if (controlHubRqst == 10)
+				{
+					resetControlHubRqst();
+					break;
+				}
 				resetControlHubRqst();
 				currentState = boomgateUpState;
 				cout << "TRAIN OUTBOUND" << endl;
@@ -588,6 +606,188 @@ void flashLED(int LED_num)
 		cout << "Error: wrong input led number into flashLED function." << endl;
 	}
 }
+
+
+
+void serverInit(void)
+{
+	DEBUGF("serverInit()->Initializing Server:\n");
+
+	// locking server mutex
+	Lock(boomGateStatusMTX);
+
+	// Initializing thread attributes
+	_thread serverThread = {0};
+
+	threadInit(&serverThread);
+
+	// get server process ID
+	 int serverPID = getpid();
+
+	// Create Channel
+	 int serverCHID = ChannelCreate(_NTO_CHF_DISCONNECT);
+
+	// _NTO_CHF_DISCONNECT flag used to allow detach
+	if (serverCHID == -1)
+	{
+		DEBUGF("serverInit()->Failed to create communication channel on server\n");
+
+		// unlocking mutex
+		Unlock(boomGateStatusMTX);
+		return;
+	}
+
+	DEBUGF("serverInit()->Writing server details to a file:\n");
+	DEBUGF("serverInit()->Process ID   : %d \n", serverPID);
+	DEBUGF("serverInit()->Channel ID   : %d \n", serverCHID);
+
+	// writing server info to control hub file
+	write_pid_chid_ToFile(serverPID, serverCHID, TRAIN_SERVER);
+	_chid = serverCHID;
+	DEBUGF("serverInit()->Server listening for clients:\n");
+
+	// starting server receiver
+	pthread_create(&serverThread.thread, NULL, serverReceiver, NULL);
+
+	DEBUGF("serverInit()->Finished server Init:\n");
+
+	// unlocking mutex
+	Unlock(boomGateStatusMTX);
+	return;
+}
+
+
+/* ----------------------------------------------------	*
+ *	@serverReceiver Implementation:						*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void *serverReceiver(void *data)
+{
+	int chid = _chid;
+
+	int rcvid=0, msgnum=0;  	// no message received yet
+	int Stay_alive=0;
+	int error = 0;
+	_data msg;
+	_data replymsg;
+
+	// getting self (bit pointless considering its a global struct
+//	struct self* self = (struct self*)appData;
+
+	// mutex locking
+	Lock(boomGateStatusMTX);
+
+	int living = 1;	// stay alive and living for controlling the server status
+//    int chid = serverCHID;
+
+	// naming thread
+//	pthread_setname_np(pthread_self(),self->server.threadName);
+
+	// Mutex unlocking
+	Unlock(boomGateStatusMTX);
+
+	replymsg.hdr.type = 0x01;
+	replymsg.hdr.subtype = 0x00;
+
+    while (living)
+    {
+    	rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+
+        DEBUGF("Server->Message Received:\n");
+
+        if (rcvid == -1) {
+        	DEBUGF("Server->Failed to MsgReceive\n");
+        	error = errno;
+    	    DEBUGF( "Server->That means: %s\n", strerror( error ) );
+            break;
+        }
+        if (rcvid == 0) {
+            switch (msg.hdr.code){
+
+            DEBUGF("Server->Pulse code received");
+
+                case _PULSE_CODE_DISCONNECT:
+                    if(Stay_alive == 0)
+                    {
+                        ConnectDetach(msg.hdr.scoid);
+                        DEBUGF("Server->was told to Detach from ClientID:%d ...\n", msg.ClientID);
+                        //living = 0; // kill while loop
+                        continue;
+                    }
+                    else
+                    {
+                    	DEBUGF("Server->received Detach pulse from ClientID:%d but rejected it ...\n", msg.ClientID);
+                    }
+                    break;
+                case _PULSE_CODE_UNBLOCK:
+                	DEBUGF("Server->got _PULSE_CODE_UNBLOCK after %d, msgnum\n", msgnum);
+                    break;
+                case _PULSE_CODE_COIDDEATH:  // from the kernel
+                	DEBUGF("Server->got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
+                    break;
+                case _PULSE_CODE_THREADDEATH: // from the kernel
+                	DEBUGF("Server->got _PULSE_CODE_THREAD_DEATH after %d, msgnum\n", msgnum);
+                    living = 0; // kill while loop
+                    break;
+                default: // Other pulse code, but it isnt handled
+                	DEBUGF("Server->got some other pulse after %d, msgnum\n", msgnum);
+                    break;
+            }
+            continue;
+        }
+
+        if(rcvid > 0)
+        {
+            msgnum++;
+
+            if (msg.hdr.type == _IO_CONNECT )
+            {
+                MsgReply( rcvid, EOK, NULL, 0 );
+                DEBUGF("Server->gns service is running....\n");
+                continue;	// Next loop
+            }
+
+            if (msg.hdr.type > _IO_BASE && msg.hdr.type <= _IO_MAX )
+            {
+                MsgError( rcvid, ENOSYS );
+                DEBUGF("Server->received and IO message and rejected it....\n");
+                continue; // Next loop
+            }
+
+
+            if (boomStatus)
+            {
+            	printf("True\n");
+            }
+            else
+            {
+            	printf("false\n");
+            }
+
+            // Locking sever mutex
+    		Lock(boomGateStatusMTX);
+            // Reply message
+			MsgReply(rcvid, EOK, &boomStatus, sizeof(boomStatus));
+
+
+        	// Unlocking mutex
+    		Unlock(boomGateStatusMTX);
+        }
+        else
+        {
+        	DEBUGF("Server->ERROR->received something, but could not handle it correctly\n");
+        }
+    }
+
+    // destroyed channel before exiting
+	ChannelDestroy(chid);
+
+	return NULL;
+}
+
+
+
 
 
 /*** Server code ***/
@@ -704,6 +904,7 @@ int server()
 				continue;	// go back to top of while loop
 			}
 
+			printf("%d\n", boomStatus);
 			// Reply message
 			MsgReply(rcvid, EOK, &boomStatus, sizeof(boomStatus));
 		}
