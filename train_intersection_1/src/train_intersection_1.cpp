@@ -511,11 +511,12 @@ void trainStateMachine(){
 
 		case boomgateDownState:
 			trainStateToSend = trainStationStates::BOOM_GATE_DOWN;
+			/*
 			if( controlHubMsg.data == 'o')
 			{
 				hubCommand = false;
-			}
-			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2) && (hubCommand == false) && (controlHubRqst == 10)) //
+			}*/
+			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2)&&(controlHubRqst == 10)) //(hubCommand == false) && (controlHubRqst == 10)
 			{
 				resetControlHubRqst();
 				currentState = boomgateUpState;
@@ -775,7 +776,7 @@ int _client(int serverPID, int serverChID, int nd)
 		else
 		{ // now process the reply
 			//cout << "HUB Reply: " << reply.train_data.currentState << endl;
-			DEBUGF("client->(%d) reply message: %d", HUBmsg.ClientID, reply.train_data.currentState);
+			DEBUGF("client->(%d) reply message: %d\n", HUBmsg.ClientID, reply.train_data.currentState);
 
 			if((reply.train_data.currentState == 10)||(reply.train_data.currentState == 11)){
 				Lock(controlHubRqstMtx);
