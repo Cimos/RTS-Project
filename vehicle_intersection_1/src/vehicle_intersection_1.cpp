@@ -552,7 +552,7 @@ void *clientServiceTrain(void *Data)
 		threadInit(&client2.clientWorkThread);
 
 		//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
-		_client(client2.serverPID, client2.serverCHID, client2.nodeDescriptor, &data);
+		_clientTrain(client2.serverPID, client2.serverCHID, client2.nodeDescriptor, &data);
 		// wait for working thread to finish
 		//pthread_join(client.clientWorkThread.thread, NULL);
 
@@ -687,6 +687,7 @@ int _client(int serverPID, int serverChID, int nd, void *Data)
 		// set up data packet
 		msg.inter_data.currentState = _current_state;
 		msg.inter_data.trainFault_int1 = _train_fault;
+
 
 		DEBUGF("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.inter_data.currentState);
 
@@ -843,8 +844,8 @@ int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
 	while (!done)
 	{
 		// set up data packet
-//		bool message = false;
-		bool reply_train = false;
+		bool message = false;
+		int reply_train = false;
 
 		int error = 0;
 		if (MsgSend(server_coid, &msg, sizeof(msg), &reply_train, sizeof(reply_train)) == -1)
@@ -864,6 +865,7 @@ int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
 
 			// Process the reply
 			_train_fault = false;
+			printf("%d\n", reply_train);
 			_sensor.train = reply_train;
 		}
 

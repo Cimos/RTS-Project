@@ -166,7 +166,7 @@ my_data controlHubMsg;
 bool LED_retval = false;
 WorkerThread serverWorker;
 char serverRead = '0';
-bool boomStatus = true;	//true = boom down, false = boom up
+int boomStatus = true;	//true = boom down, false = boom up
 
 // connection data (you may need to edit this)
 int HUBserverPID = 0;	// CHANGE THIS Value to PID of the server process
@@ -259,7 +259,7 @@ int main() {
 	struct sched_param keyPad_param;
 	pthread_attr_init(&keyPad_attr);
 	pthread_attr_setschedpolicy(&keyPad_attr, SCHED_RR);
-	keyPad_param.sched_priority = 20;
+	keyPad_param.sched_priority = 5;
 	pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
 	pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setstacksize (&keyPad_attr, 8000);
@@ -527,8 +527,15 @@ void trainStateMachine(){
 			{
 				hubCommand = false;
 			}*/
-			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2)&&(controlHubRqst == 10)) //(hubCommand == false) && (controlHubRqst == 10)
+//			if (!(train_1_arrive_1 && train_1_arrive_2 && train_2_arrive_1 && train_2_arrive_2))
+
+			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2)) //(hubCommand == false) && (controlHubRqst == 10)
 			{
+				if (controlHubRqst == 10)
+				{
+					resetControlHubRqst();
+					break;
+				}
 				resetControlHubRqst();
 				currentState = boomgateUpState;
 				cout << "TRAIN OUTBOUND" << endl;
@@ -636,7 +643,7 @@ void serverInit(void)
 
 	// writing server info to control hub file
 	write_pid_chid_ToFile(serverPID, serverCHID, TRAIN_SERVER);
-
+	_chid = serverCHID;
 	DEBUGF("serverInit()->Server listening for clients:\n");
 
 	// starting server receiver
@@ -749,9 +756,17 @@ void *serverReceiver(void *data)
             }
 
 
+            if (boomStatus)
+            {
+            	printf("True\n");
+            }
+            else
+            {
+            	printf("false\n");
+            }
+
             // Locking sever mutex
     		Lock(boomGateStatusMTX);
-
             // Reply message
 			MsgReply(rcvid, EOK, &boomStatus, sizeof(boomStatus));
 
@@ -892,6 +907,7 @@ int server()
 				continue;	// go back to top of while loop
 			}
 
+			printf("%d\n", boomStatus);
 			// Reply message
 			MsgReply(rcvid, EOK, &boomStatus, sizeof(boomStatus));
 		}
