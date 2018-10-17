@@ -53,7 +53,7 @@ int setTimeDate(struct tm* _tm)
     char buf[20] = {};
 
     strftime(buf, 20, "date %m%d%H%M%Y", _tm);
-
+    DEBUGF("%s\n", buf);
     rc = system( buf );
     if( rc == -1 )
     {
@@ -72,7 +72,7 @@ int setTimeDateControlHub(void)
 	int rc;
     // 	month, day, 24h time, year
     // 101812302018
-	rc = system( "date 101803452018" );
+	rc = system( "date 101815452018" );
 	if( rc == -1 )
 	{
 		DEBUGF( "setTimeDate->shell could not be run\n" );
@@ -88,7 +88,7 @@ bool checkIfpeak(time_t *_currenttime, systemTimeAlignment *timing)
 {
 	char buf[5] = {};
 
-
+	uint8_t currenthourMin = 0;
 	struct tm *currentTime = localtime(((_currenttime == NULL) ? &timing->time : _currenttime));
 
     strftime(buf, 5, "%H", currentTime);
@@ -99,19 +99,20 @@ bool checkIfpeak(time_t *_currenttime, systemTimeAlignment *timing)
 
     currentHour *= 6;
     currentMinute *= 6;
-
+    currenthourMin = currentHour+currentMinute;
     DEBUGF("Hour=%d\n", currentHour);
     DEBUGF("Min=%d\n", currentMinute);
+    DEBUGF("currenthourMin=%d\n", currenthourMin);
     DEBUGF("timing->morningPeakStart=%d\n", timing->morningPeakStart);
     DEBUGF("timing->morningPeakFinish=%d\n", timing->morningPeakFinish);
     DEBUGF("timing->eveningPeakStart=%d\n", timing->eveningPeakStart);
     DEBUGF("timing->eveningPeakFinish=%d\n", timing->eveningPeakFinish);
 
 
-    if ((currentHour > timing->morningPeakStart
-    		&& currentHour < timing->morningPeakFinish)
-			|| (currentHour > timing->eveningPeakStart
-			&& currentHour < timing->eveningPeakFinish))
+    if ((currenthourMin > timing->morningPeakStart
+    		&& currenthourMin < timing->morningPeakFinish)
+			|| (currenthourMin > timing->eveningPeakStart
+			&& currenthourMin < timing->eveningPeakFinish))
     {
     	DEBUGF("trafficTime->On Peak hour\n");
     	return true;
