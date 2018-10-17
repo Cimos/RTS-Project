@@ -14,6 +14,7 @@
 #ifndef PUBLIC_DEBUG_H_
 #define PUBLIC_DEBUG_H_
 
+//#define debugging
 
 // Use to print out debuf statements
 //#define DEBUGF //
