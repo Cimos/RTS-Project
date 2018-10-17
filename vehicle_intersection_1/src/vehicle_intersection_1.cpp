@@ -51,6 +51,20 @@
 
 #define SEM_FLAGS O_CREAT | O_EXCL
 
+// Use to lock mutex
+#define Lock(_Mutex) {		 											\
+	do { 																\
+		pthread_mutex_lock(&_Mutex); 									\
+	} while(0); 														\
+}
+
+// Use to unlock mutex
+#define Unlock(_Mutex) { 												\
+	do { 																\
+		pthread_mutex_unlock(&_Mutex);									\
+	} while(0); 														\
+}
+
 /*-----------------------------------------------------------------------------
 * Local Variables and Buffers
 *---------------------------------------------------------------------------*/
@@ -110,9 +124,38 @@ struct traffic_data
 	int ndc;
 };
 
+typedef struct
+{
+	int priority;
+	pthread_t thread;
+	pthread_attr_t attr;
+	struct sched_param sch_prm;
+}_thread;
+
+// ******** Client Struct ********
+struct
+{
+	WorkerThread client;
+	pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+	_thread clientWorkThread = {0};
+	_thread clientInitThread = {0};
+	char *workingthreadName = "Intersection 1 Work";
+	char *servicethreadName = "Intersection 1 Service";
+	int living = 1;
+	int serverPID = 0;
+	int serverCHID = 0;
+	int *server_coid = 0;
+	int nodeDescriptor = 0;
+	trainStationStates Train1 = trainStationStates::DEFAULT_TSS;
+	_data* msg;
+	_data *reply;
+}client;
+
 WorkerThread pingpong;
 keyPad kp;
 TRAFFIC_SENSORS _sensor;
+trafficLightStates _current_state;
+
 
 /*-----------------------------------------------------------------------------
 * Threads Declarations
@@ -121,19 +164,24 @@ void *th_statemachine(void *Data);
 void *th_sensors(void *Data);
 void *th_ipc_controlhub_client(void *Data);
 void *th_ipc_train_client(void *Data);
+void *clientService(void *notUsed);
 
 void *th_fakeserver(void *Data);	// Debug
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
 *---------------------------------------------------------------------------*/
+int clientConnect(int serverPID,  int serverChID, int nodeDescriptor);
+void clientDisconnect(int server_coid);
+void Client_Start(int prio, void *Data);
+int _client(int serverPID, int serverChID, int nd, void *Data);
+void threadInit(_thread *th);
+
 void state_display(traffic_data *data);
 void state_perform(traffic_data *data);
 void state_transition(traffic_data *data);
 
 void init_traffic_data(traffic_data *data);
-
-int client(int pid,  int chid, int nd);
 
 void keypad_cb(char keypress);
 void *work_cb(workBuf *work);
@@ -165,6 +213,7 @@ int main(void)
 	// Setup state machine
 	traffic_data traffic;
 	init_traffic_data(&traffic);
+	_state = traffic.current_state;
 
 	// Clear any old semaphores with the same name
 	sem_unlink(traffic.sem_name);
@@ -181,10 +230,10 @@ int main(void)
 //	printf("Control Hub Server PID = %d\tCID = %d\n", traffic.pidc, traffic.chidc);
 
 	// Setup Train Server Connection
-	traffic.ndt = read_pid_chid_FromFile( &traffic.pidt, &traffic.chidt, "/net/BBB_CimosDirect", "/fs/TrainServer.info");
+//	traffic.ndt = read_pid_chid_FromFile( &traffic.pidt, &traffic.chidt, "/net/BBB_CimosDirect", "/fs/TrainServer.info");
 
 	// Confirm Control Hub Server Connection
-	printf("Train Server PID = %d\tCID = %d\n", traffic.pidt, traffic.chidt);
+//	printf("Train Server PID = %d\tCID = %d\n", traffic.pidt, traffic.chidt);
 
 #else
 	pthread_t th_fake;
@@ -194,14 +243,26 @@ int main(void)
 	pthread_t th_traffic_sm;
 	pthread_t th_sensor;
 //	pthread_t th_client_control;
-	pthread_t th_client_train;
+//	pthread_t th_client_train;
+
 	void *retval;
 
 	// Create Threads
 	pthread_create(&th_traffic_sm, NULL, th_statemachine, &traffic);
 	pthread_create(&th_sensor, NULL, th_sensors, &traffic);
 //	pthread_create(&th_client_control, NULL, th_ipc_controlhub_client, &traffic);
-	pthread_create(&th_client_train, NULL, th_ipc_train_client, &traffic);
+//	pthread_create(&th_client_train, NULL, th_ipc_train_client, &traffic);
+
+	// Create Server
+	Lock(client.Mtx);
+	client.clientInitThread.priority = 10;
+	client.clientWorkThread.priority = 10;
+	threadInit(&client.clientInitThread);
+	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, &traffic);
+
+	usleep(1); // TODO - replace with QNX timer
+
+	Unlock(client.Mtx);
 
 #if DEBUG_RUN_SERVER == 0
 	pthread_create(&th_fake, NULL, th_fakeserver, &traffic);
@@ -212,7 +273,7 @@ int main(void)
 	pthread_join(th_traffic_sm, &retval);
 	pthread_join(th_sensor, &retval);
 //	pthread_join(th_client_control, &retval);
-	pthread_join(th_client_train, &retval);
+//	pthread_join(th_client_train, &retval);
 
 	// Close the named semaphore
 	sem_close(&traffic.sem);
@@ -277,6 +338,8 @@ void *th_sensors(void *Data)
 	// Read Sensors Continuously
 	while(data->keep_running)
 	{
+		sem_wait(&data->sem);
+
 		// Read Sensor Data and ignore transitions to the same state
 		// North South Checks
 		if (_sensor.ns_turn && data->current_state != NSTG)
@@ -318,6 +381,10 @@ void *th_sensors(void *Data)
 			data->change_state = true;
 		}
 
+		data->current_state = _state;
+
+		sem_post(&data->sem);
+
 		// Set update rate
 		timer.createTimer(); // 1 us timer
 	}
@@ -347,97 +414,179 @@ void *th_fakeserver(void *Data)
 }
 
 
-void *th_ipc_controlhub_client(void *Data)
+void *clientService(void *Data)
 {
-	printf("TLI-1 - Control Hub Client - Thread Started\n");
-
-	// Cast pointer
+	// Cast the pointer
 	traffic_data *data = (traffic_data*) Data;
 
-	// Create Timer
-	DelayTimer server_rate(false, 0, 1, 0, 0);
 
-	// Declare message variables
-	_data 	msg;
-	_reply 	reply;
+	Lock(client.Mtx);
+	printf("\t\tbbbbb CurrentState = %d\n", (int) data->current_state);
+	Unlock(client.Mtx);
 
-	// Set client ID
-	msg.ClientID = TRAFFIC_L1; // ID 1
+	bool fileExists = false;
+	int nD = -1;
+	DelayTimer timout(false, 0, 3, 0, 0);
+	int pid = 0;
+	int chid = 0;
 
-	// Print debug
-	printf("   --> Trying to connect (server) process which has a PID: %d\n", data->pidc);
-	printf("   --> on channel: %d\n\n", data->chidc);
+	Lock(client.Mtx);
+	// naming thread
+	pthread_setname_np(pthread_self(),client.servicethreadName);
+	Unlock(client.Mtx);
 
-	// Set up message passing channel
-	int server_coid = ConnectAttach(data->ndc, data->pidc, data->chidc, _NTO_SIDE_CHANNEL, 0);
-	if (server_coid == -1)
+	std::string fullFilePath(CONTROLHUB);
+	fullFilePath.append(CONTROLHUB_SERVER);
+
+	while(true)
 	{
-		printf("\n    ERROR, could not connect to server!\n\n");
-		return 0; 	// TODO - Exit with failure
+		//checking if file for server exists
+		do
+		{
+			DEBUGF("clientService->checking for file with train server details\n");
+
+			fileExists = checkIfFileExists(fullFilePath.c_str());
+			timout.createTimer();
+
+		}while(!fileExists);
+
+		nD = read_pid_chid_FromFile(&pid, &chid, CONTROLHUB, CONTROLHUB_SERVER);
+
+		if (nD != 0)
+		{
+			break;
+			DEBUGF("clientService->Server file found with a valid node descriptor\n");
+		}
+		timout.createTimer();
 	}
 
-	// Confirm connection
-	printf("Connection established to process with PID:%d, CHID:%d\n", data->pidc, data->chidc);
+	Lock(client.Mtx);
+	client.serverPID = pid;
+	client.serverCHID = chid;
+	client.nodeDescriptor = nD;
+	Unlock(client.Mtx);
 
-	// We would have pre-defined data to stuff here
-	msg.hdr.type = 0x00;
-	msg.hdr.subtype = 0x00;
+	// start client service for train station
+	client.clientWorkThread.priority = 10;
+	threadInit(&client.clientWorkThread);
 
-	while (data->keep_running)
+	//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
+	_client(client.serverPID, client.serverCHID, client.nodeDescriptor, &data);
+	// wait for working thread to finish
+	//pthread_join(client.clientWorkThread.thread, NULL);
+
+
+	//locking mutex
+	Lock(client.Mtx);
+
+	// Check if living and if node has failed.. i.e. a drop.
+	if (client.living == 0)
 	{
-		// set up data packet
-		msg.inter_data.currentState = data->current_state;
-		msg.inter_data.lightTiming = data->timing;
-
-		// Print data packet to send
-		printf("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.inter_data.currentState);
-		fflush(stdout);
-
-		// Try sending the message
-		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
-		{
-			// Reply not received from server
-			printf("\tError data '%d' NOT sent to server\n", msg.inter_data.currentState);
-		}
-		else
-		{
-			// Process the reply
-			printf("\t-->Server reply is: '%d'\n", reply.inter_data.currentState);
-
-			// Handle state requests
-			switch (reply.inter_data.currentState)
-			{
-			case NSG:
-				_sensor.ns_straight = true;
-				break;
-			case NSTG:
-				_sensor.ns_turn = true;
-				break;
-			case EWG:
-				_sensor.ew_straight = true;
-				break;
-			case EWTG:
-				_sensor.ew_turn = true;
-			default:
-				break;
-			}
-
-			// Update traffic light timing
-			reply.inter_data.lightTiming = data->timing;
-
-			// TODO - handle peak hour traffic changes
-		}
-
-		// Slow down the message rate
-		server_rate.createTimer();
+		Unlock(client.Mtx);
+		return NULL;
 	}
+	// create a thread that is this function and then exit this thread.
+	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, &data);
 
-	// Close the connection
-	ConnectDetach(server_coid);
+	// reconnection counter
+	// create longer delay?
+	Unlock(client.Mtx);
 
-	printf("TLI-1 - Control Hub Client - Thread Terminated\n");
-	return EXIT_SUCCESS;
+	return NULL;
 }
+
+
+//void *th_ipc_controlhub_client(void *Data)
+//{
+//	printf("TLI-1 - Control Hub Client - Thread Started\n");
+//
+//	// Cast pointer
+//	traffic_data *data = (traffic_data*) Data;
+//
+//	// Create Timer
+//	DelayTimer server_rate(false, 0, 1, 0, 0);
+//
+//	// Declare message variables
+//	_data 	msg;
+//	_reply 	reply;
+//
+//	// Set client ID
+//	msg.ClientID = TRAFFIC_L1; // ID 1
+//
+//	// Print debug
+//	printf("   --> Trying to connect (server) process which has a PID: %d\n", data->pidc);
+//	printf("   --> on channel: %d\n\n", data->chidc);
+//
+//	// Set up message passing channel
+//	int server_coid = ConnectAttach(data->ndc, data->pidc, data->chidc, _NTO_SIDE_CHANNEL, 0);
+//	if (server_coid == -1)
+//	{
+//		printf("\n    ERROR, could not connect to server!\n\n");
+//		return 0; 	// TODO - Exit with failure
+//	}
+//
+//	// Confirm connection
+//	printf("Connection established to process with PID:%d, CHID:%d\n", data->pidc, data->chidc);
+//
+//	// We would have pre-defined data to stuff here
+//	msg.hdr.type = 0x00;
+//	msg.hdr.subtype = 0x00;
+//
+//	while (data->keep_running)
+//	{
+//		// set up data packet
+//		msg.inter_data.currentState = data->current_state;
+//		msg.inter_data.lightTiming = data->timing;
+//
+//		// Print data packet to send
+//		printf("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.inter_data.currentState);
+//		fflush(stdout);
+//
+//		// Try sending the message
+//		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+//		{
+//			// Reply not received from server
+//			printf("\tError data '%d' NOT sent to server\n", msg.inter_data.currentState);
+//		}
+//		else
+//		{
+//			// Process the reply
+//			printf("\t-->Server reply is: '%d'\n", reply.inter_data.currentState);
+//
+//			// Handle state requests
+//			switch (reply.inter_data.currentState)
+//			{
+//			case NSG:
+//				_sensor.ns_straight = true;
+//				break;
+//			case NSTG:
+//				_sensor.ns_turn = true;
+//				break;
+//			case EWG:
+//				_sensor.ew_straight = true;
+//				break;
+//			case EWTG:
+//				_sensor.ew_turn = true;
+//			default:
+//				break;
+//			}
+//
+//			// Update traffic light timing
+//			reply.inter_data.lightTiming = data->timing;
+//
+//			// TODO - handle peak hour traffic changes
+//		}
+//
+//		// Slow down the message rate
+//		server_rate.createTimer();
+//	}
+//
+//	// Close the connection
+//	ConnectDetach(server_coid);
+//
+//	printf("TLI-1 - Control Hub Client - Thread Terminated\n");
+//	return EXIT_SUCCESS;
+//}
 
 void *th_ipc_train_client(void *Data)
 {
@@ -498,9 +647,172 @@ void *th_ipc_train_client(void *Data)
 /*-----------------------------------------------------------------------------
 * Local Function Definitions
 *---------------------------------------------------------------------------*/
+
+/*** Client code ***/
+int _client(int serverPID, int serverChID, int nd, void *Data)
+{
+	// Cast pointer
+	traffic_data *data = (traffic_data*) Data;
+
+	Lock(client.Mtx);
+	printf("\t\tccccc CurrentState = %d\n", data->current_state);
+	Unlock(client.Mtx);
+
+	printf("Client running\n");
+	//client_data msg;
+	//_reply reply;
+
+	_data reply;
+	_data msg;
+
+	msg.ClientID = TRAFFIC_L1;
+
+	int server_coid;
+	int index = 0;
+
+	printf("   --> Trying to connect (server) process which has a PID: %d\n", serverPID);
+	printf("   --> on channel: %d\n\n", serverChID);
+
+	// set up message passing channel
+	server_coid = ConnectAttach(nd, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		printf("\n    ERROR, could not connect to server!\n\n");
+		return EXIT_FAILURE;
+	}
+
+	printf("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
+
+	msg.hdr.type = 0x00;
+	msg.hdr.subtype = 0x00;
+
+	int done = 0;
+
+	// Create Timer
+	DelayTimer server_rate(false, 0, 1, 0, 0);
+
+	while (!done)
+	{
+		// set up data packet
+		msg.inter_data.currentState = data->current_state;
+
+		printf("data->current_state = %d\n", data->current_state);
+
+		printf("\tClient (ID:%d) current_state = %d\n", msg.ClientID, msg.inter_data.currentState);
+
+		fflush(stdout);
+		int error = 0;
+		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+		{
+			error = errno;
+			printf("Error was: %s\n", strerror(error));
+			printf(" Error data NOT sent to server\n");
+			// maybe we did not get a reply from the server
+			break;
+		}
+		else
+		{
+			// Process the reply
+			printf("\t-->Server reply is: '%d'\n", reply.inter_data.currentState);
+
+			// Handle state requests
+			switch (reply.inter_data.currentState)
+			{
+			case NSG:
+				_sensor.ns_straight = true;
+				break;
+			case NSTG:
+				_sensor.ns_turn = true;
+				break;
+			case EWG:
+				_sensor.ew_straight = true;
+				break;
+			case EWTG:
+				_sensor.ew_turn = true;
+			default:
+				break;
+			}
+
+			// Update traffic light timing
+			data->timing = reply.inter_data.lightTiming; // TODO - wrong struct implementation, doesn't update variable
+
+			// TODO - handle peak hour traffic changes
+		}
+
+		// Slow down the message rate
+		server_rate.createTimer();
+
+	}//end while
+
+	// Close the connection
+	printf("\n Sending message to server to tell it to close the connection\n");
+	ConnectDetach(server_coid);
+
+	return EXIT_SUCCESS;
+}
+
+/* ----------------------------------------------------	*
+ *	@threadInit Implementation:							*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void threadInit(_thread *th)
+{
+	// setting up thread attributes
+    pthread_attr_init (&th->attr);
+    pthread_attr_setschedpolicy(&th->attr, SCHED_RR);
+    th->sch_prm.sched_priority = th->priority;
+    pthread_attr_setschedparam (&th->attr, &th->sch_prm);
+    pthread_attr_setinheritsched (&th->attr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setstacksize (&th->attr, 8000);
+}
+
+
+/* ----------------------------------------------------	*
+ *	@clientConnect Implementation:						*
+ *	@brief:												*
+ *	@return:	int										*
+ * ---------------------------------------------------	*/
+int clientConnect(int serverPID,  int serverChID, int nodeDescriptor)
+{
+    int server_coid;
+
+    DEBUGF("clientConnect->trying to connect (server) process which has a PID: %d\n", serverPID);
+    DEBUGF("clientConnect->on channel: %d\n", serverChID);
+
+	// set up message passing channel
+    server_coid = ConnectAttach(nodeDescriptor, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		DEBUGF("clientConnect->ERROR, could not connect to server!\n\n");
+        return server_coid;
+	}
+
+	DEBUGF("clientConnect->connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
+    return server_coid;
+}
+
+
+/* ----------------------------------------------------	*
+ *	@clientDisconnect Implementation:					*
+ *	@brief:												*
+ *	@return:	server_coid								*
+ * ---------------------------------------------------	*/
+void clientDisconnect(int server_coid)
+{
+    DEBUGF("\n Sending message to server to tell it to close the connection\n");
+    ConnectDetach(server_coid);
+    return;
+}
+
+
+
 void state_display(traffic_data *data)
 {
 	sem_wait(&data->sem);
+
+//	printf("\t\tstate CurrentState = %d\n", data->current_state);
+
 	switch(data->current_state)
 	{
 	case DEFAULT_TLS:

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<trgtproject id="com.qnx.tools.ide.target.core.target">
+    <data>
+        <item id="com.qnx.tools.ide.target">
+            <connection>
+                <ENDIAN value="le"/>
+                <VERSION value="2017/02/14-16:14:20EST"/>
+                <ARCHITECTURE value="armle"/>
+                <MACHINE value="AM335X_BeagleBone"/>
+                <DOMAIN value="net.intra"/>
+                <SYSNAME value="QNX"/>
+                <CPU value="armle"/>
+                <HASVERSION value="1"/>
+                <HOSTNAME value="BBB_CimosDirect"/>
+                <OS value="nto"/>
+                <QCONN_VERSION value="1.4.207944"/>
+                <RELEASE value="7.0.0"/>
+                <NUM_SRVCS value="1"/>
+            </connection>
+            <qconnostype value="nto"/>
+            <project>
+                <name value="BBB_CimosDirect"/>
+            </project>
+            <qconnport value="8000"/>
+            <qconnguid value="438c845c-3424-4e9f-9c5b-06220dd9b37b"/>
+            <targettmpdir value="/tmp"/>
+            <qconnhostname value="192.168.40.15"/>
+        </item>
+    </data>
+</trgtproject>
