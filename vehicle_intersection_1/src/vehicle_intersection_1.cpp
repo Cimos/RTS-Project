@@ -183,8 +183,8 @@ bool _train_fault;
 *---------------------------------------------------------------------------*/
 void *th_statemachine(void *Data);
 void *th_sensors(void *Data);
-void *th_ipc_controlhub_client(void *Data);
-void *th_ipc_train_client(void *Data);
+//void *th_ipc_controlhub_client(void *Data);
+//void *th_ipc_train_client(void *Data);
 
 void *clientService(void *Data);
 void *clientServiceTrain(void *Data);
@@ -576,68 +576,68 @@ void *clientServiceTrain(void *Data)
 	return NULL;
 }
 
-void *th_ipc_train_client(void *Data)
-{
-	printf("TLI-1 - Train Client - Thread Started\n");
-
-	// Cast pointer
-	traffic_data *data = (traffic_data*) Data;
-
-	// Create Timer
-	DelayTimer server_rate(false, 0, 1, 0, 0);
-
-	// Print debug
-	DEBUGF("\t--> Connecting to Train Server: PID: %d \tCHID %d\n", data->pidt, data->chidt);
-
-	// Set up message passing channel
-	int server_coid = ConnectAttach(data->ndt, data->pidt, data->chidt, _NTO_SIDE_CHANNEL, 0);
-	if (server_coid == -1)
-	{
-		printf("\n    ERROR, could not connect to server!\n\n");
-		return 0;
-	}
-
-	// Confirm connection
-	DEBUGF("Connection established to process with PID:%d, CHID:%d\n", data->pidt, data->chidt);
-
-	while (data->keep_running)
-	{
-		// set up data packet
-		bool message = false;
-		bool reply_train = false;
-
-		// Try sending the message
-		if (MsgSend(server_coid, &message, sizeof(message), &reply_train, sizeof(reply_train)) == -1)
-		{
-			// Reply not received from server
-			DEBUGF("\tError data '%d' NOT sent to server\n", message);
-
-//			_sensor.train = true;
-			_train_fault = true;
-
-		}
-		else
-		{
-			// Process the reply
-			DEBUGF("\t-->Server reply is: '%d'\n", reply_train);
-
-			// Update train server
-			_sensor.train = reply_train;
-
-			//
-			_train_fault = false;
-		}
-
-		// Slow down the message rate
-		server_rate.createTimer();
-	}
-
-	// Close the connection
-	ConnectDetach(server_coid);
-
-	printf("TLI-1 - Train Client - Thread Terminated\n");
-	return EXIT_SUCCESS;
-}
+//void *th_ipc_train_client(void *Data)
+//{
+//	printf("TLI-1 - Train Client - Thread Started\n");
+//
+//	// Cast pointer
+//	traffic_data *data = (traffic_data*) Data;
+//
+//	// Create Timer
+//	DelayTimer server_rate(false, 0, 1, 0, 0);
+//
+//	// Print debug
+//	DEBUGF("\t--> Connecting to Train Server: PID: %d \tCHID %d\n", data->pidt, data->chidt);
+//
+//	// Set up message passing channel
+//	int server_coid = ConnectAttach(data->ndt, data->pidt, data->chidt, _NTO_SIDE_CHANNEL, 0);
+//	if (server_coid == -1)
+//	{
+//		printf("\n    ERROR, could not connect to server!\n\n");
+//		return 0;
+//	}
+//
+//	// Confirm connection
+//	DEBUGF("Connection established to process with PID:%d, CHID:%d\n", data->pidt, data->chidt);
+//
+//	while (data->keep_running)
+//	{
+//		// set up data packet
+//		bool message = false;
+//		bool reply_train = false;
+//
+//		// Try sending the message
+//		if (MsgSend(server_coid, &message, sizeof(message), &reply_train, sizeof(reply_train)) == -1)
+//		{
+//			// Reply not received from server
+//			DEBUGF("\tError data '%d' NOT sent to server\n", message);
+//
+////			_sensor.train = true;
+//			_train_fault = true;
+//
+//		}
+//		else
+//		{
+//			// Process the reply
+//			DEBUGF("\t-->Server reply is: '%d'\n", reply_train);
+//
+//			// Update train server
+//			_sensor.train = reply_train;
+//
+//			//
+//			_train_fault = false;
+//		}
+//
+//		// Slow down the message rate
+//		server_rate.createTimer();
+//	}
+//
+//	// Close the connection
+//	ConnectDetach(server_coid);
+//
+//	printf("TLI-1 - Train Client - Thread Terminated\n");
+//	return EXIT_SUCCESS;
+//}
 
 /*-----------------------------------------------------------------------------
 * Local Function Definitions
@@ -659,7 +659,7 @@ int _client(int serverPID, int serverChID, int nd, void *Data)
 	msg.ClientID = TRAFFIC_L1;
 
 	int server_coid;
-	int index = 0;
+//	int index = 0;
 
 	DEBUGF("   --> Trying to connect (server) process which has a PID: %d\n", serverPID);
 	DEBUGF("   --> on channel: %d\n\n", serverChID);
@@ -805,19 +805,19 @@ void clientDisconnect(int server_coid)
 int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
 {
 	// Cast pointer
-	traffic_data *data = (traffic_data*) Data;
+//	traffic_data *data = (traffic_data*) Data;
 
 	DEBUGF("Client train running\n");
 	//client_data msg;
 	//_reply reply;
 
-	_data reply;
+//	_data reply;
 	_data msg;
 
 	msg.ClientID = TRAFFIC_L1;
 
 	int server_coid;
-	int index = 0;
+//	int index = 0;
 
 	DEBUGF("   --> Trying to connect (train server) process which has a PID: %d\n", serverPID);
 	DEBUGF("   --> on channel: %d\n\n", serverChID);
@@ -843,7 +843,7 @@ int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
 	while (!done)
 	{
 		// set up data packet
-		bool message = false;
+//		bool message = false;
 		bool reply_train = false;
 
 		int error = 0;
@@ -860,6 +860,8 @@ int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
 		}
 		else
 		{
+			DEBUGF("Received bool boomgate = %d\n", reply_train);
+
 			// Process the reply
 			_train_fault = false;
 			_sensor.train = reply_train;
