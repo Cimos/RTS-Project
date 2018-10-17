@@ -92,8 +92,8 @@ struct
 	pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
 	_thread clientWorkThread = {0};
 	_thread clientInitThread = {0};
-	char *workingthreadName = "Train Service Work";
-	char *servicethreadName = "Train Station Service";
+	char *workingthreadName = "control HUB client thread";
+	char *servicethreadName = "Train Station Service thread";
 	int living = 1;
 	int serverPID = 0;
 	int serverCHID = 0;
