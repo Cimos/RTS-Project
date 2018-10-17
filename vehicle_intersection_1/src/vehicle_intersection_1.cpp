@@ -151,6 +151,24 @@ struct
 	_data *reply;
 }client;
 
+struct
+{
+	WorkerThread client;
+	pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
+	_thread clientWorkThread = {0};
+	_thread clientInitThread = {0};
+	char *workingthreadName = "Intersection 1 Work";
+	char *servicethreadName = "Intersection 1 Service";
+	int living = 1;
+	int serverPID = 0;
+	int serverCHID = 0;
+	int *server_coid = 0;
+	int nodeDescriptor = 0;
+	trainStationStates Train1 = trainStationStates::DEFAULT_TSS;
+	_data* msg;
+	_data *reply;
+}client2;
+
 WorkerThread pingpong;
 keyPad kp;
 TRAFFIC_SENSORS _sensor;
@@ -167,15 +185,23 @@ void *th_statemachine(void *Data);
 void *th_sensors(void *Data);
 void *th_ipc_controlhub_client(void *Data);
 void *th_ipc_train_client(void *Data);
-void *clientService(void *notUsed);
+
+void *clientService(void *Data);
+void *clientServiceTrain(void *Data);
 
 /*-----------------------------------------------------------------------------
 * Local Function Declarations
 *---------------------------------------------------------------------------*/
 int clientConnect(int serverPID,  int serverChID, int nodeDescriptor);
 void clientDisconnect(int server_coid);
-void Client_Start(int prio, void *Data);
+//void Client_Start(int prio, void *Data);
 int _client(int serverPID, int serverChID, int nd, void *Data);
+
+int clientConnectTrain(int serverPID,  int serverChID, int nodeDescriptor);
+void clientDisconnectTrain(int server_coid);
+//void Client_StartTrain(int prio, void *Data);
+int _clientTrain(int serverPID, int serverChID, int nd, void *Data);
+
 void threadInit(_thread *th);
 
 void state_display(traffic_data *data);
@@ -254,6 +280,18 @@ int main(void)
 	// This needs to be a usleep(1) to start the client properly
 	usleep(1);
 	Unlock(client.Mtx);
+
+	// Create Thread for train client
+	Lock(client2.Mtx);
+	client2.clientInitThread.priority = 10;
+	client2.clientWorkThread.priority = 10;
+	threadInit(&client2.clientInitThread);
+	pthread_create(&client2.clientInitThread.thread, &client.clientInitThread.attr, clientServiceTrain, &traffic);
+
+	// This needs to be a usleep(1) to start the client properly
+	usleep(1);
+	Unlock(client2.Mtx);
+
 
 	// Join Threads
 	pthread_join(th_traffic_sm, &retval);
@@ -456,6 +494,84 @@ void *clientService(void *Data)
 		// reconnection counter
 		// create longer delay?
 		Unlock(client.Mtx);
+	}
+	return NULL;
+}
+
+void *clientServiceTrain(void *Data)
+{
+	// Cast the pointer
+	traffic_data *data = (traffic_data*) Data;
+
+	bool fileExists = false;
+	int nD = -1;
+	DelayTimer timout(false, 0, 3, 0, 0);
+	int pid = 0;
+	int chid = 0;
+
+	Lock(client2.Mtx);
+	// naming thread
+	pthread_setname_np(pthread_self(),client2.servicethreadName);
+	Unlock(client2.Mtx);
+
+	std::string fullFilePath(TRAINSTATION);
+	fullFilePath.append(TRAIN_SERVER);
+
+	while(1)
+	{
+		while(true)
+		{
+			//checking if file for server exists
+			do
+			{
+				DEBUGF("clientService->checking for file with train server details\n");
+
+				fileExists = checkIfFileExists(fullFilePath.c_str());
+				timout.createTimer();
+
+			}while(!fileExists);
+
+			nD = read_pid_chid_FromFile(&pid, &chid, TRAINSTATION, TRAIN_SERVER);
+
+			if (nD != 0)
+			{
+				break;
+				DEBUGF("clientService->Server file found with a valid node descriptor\n");
+			}
+			timout.createTimer();
+		}
+
+		Lock(client2.Mtx);
+		client2.serverPID = pid;
+		client2.serverCHID = chid;
+		client2.nodeDescriptor = nD;
+		Unlock(client2.Mtx);
+
+		// start client service for train station
+		client2.clientWorkThread.priority = 10;
+		threadInit(&client2.clientWorkThread);
+
+		//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
+		_client(client2.serverPID, client2.serverCHID, client2.nodeDescriptor, &data);
+		// wait for working thread to finish
+		//pthread_join(client.clientWorkThread.thread, NULL);
+
+
+		//locking mutex
+		Lock(client2.Mtx);
+
+		// Check if living and if node has failed.. i.e. a drop.
+		if (client2.living == 0)
+		{
+			Unlock(client2.Mtx);
+			return NULL;
+		}
+		// create a thread that is this function and then exit this thread.
+	//	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, &data);
+
+		// reconnection counter
+		// create longer delay?
+		Unlock(client2.Mtx);
 	}
 	return NULL;
 }
@@ -685,7 +801,120 @@ void clientDisconnect(int server_coid)
     return;
 }
 
+/*** Client code ***/
+int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
+{
+	// Cast pointer
+	traffic_data *data = (traffic_data*) Data;
 
+	DEBUGF("Client train running\n");
+	//client_data msg;
+	//_reply reply;
+
+	_data reply;
+	_data msg;
+
+	msg.ClientID = TRAFFIC_L1;
+
+	int server_coid;
+	int index = 0;
+
+	DEBUGF("   --> Trying to connect (train server) process which has a PID: %d\n", serverPID);
+	DEBUGF("   --> on channel: %d\n\n", serverChID);
+
+	// set up message passing channel
+	server_coid = ConnectAttach(nd, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		DEBUGF("\n    ERROR, could not connect to train server!\n\n");
+		return EXIT_FAILURE;
+	}
+
+	DEBUGF("Connection established to train process with PID:%d, Ch:%d\n", serverPID, serverChID);
+
+	msg.hdr.type = 0x00;
+	msg.hdr.subtype = 0x00;
+
+	int done = 0;
+
+	// Create Timer
+	DelayTimer server_rate(false, 0, 1, 0, 0);
+
+	while (!done)
+	{
+		// set up data packet
+		bool message = false;
+		bool reply_train = false;
+
+		int error = 0;
+		if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+		{
+			error = errno;
+			DEBUGF("Error was: %s\n", strerror(error));
+			DEBUGF(" Error data NOT sent to train server\n");
+			// maybe we did not get a reply from the server
+
+			_train_fault = true;
+
+			break;
+		}
+		else
+		{
+			// Process the reply
+			_train_fault = false;
+			_sensor.train = reply_train;
+		}
+
+
+		// Slow down the message rate
+		server_rate.createTimer();
+
+	}//end while
+
+	// Close the connection
+	DEBUGF("\n Sending message to train server to tell it to close the connection\n");
+	ConnectDetach(server_coid);
+
+	return EXIT_SUCCESS;
+}
+
+
+/* ----------------------------------------------------	*
+ *	@clientConnect Implementation:						*
+ *	@brief:												*
+ *	@return:	int										*
+ * ---------------------------------------------------	*/
+int clientConnectTrain(int serverPID,  int serverChID, int nodeDescriptor)
+{
+    int server_coid;
+
+    DEBUGF("clientConnect->trying to connect (train server) process which has a PID: %d\n", serverPID);
+    DEBUGF("clientConnect->on channel: %d\n", serverChID);
+
+	// set up message passing channel
+    server_coid = ConnectAttach(nodeDescriptor, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
+	if (server_coid == -1)
+	{
+		DEBUGF("clientConnect->ERROR, could not connect to train server!\n\n");
+        return server_coid;
+	}
+
+	DEBUGF("clientConnect->connection established to train process with PID:%d, Ch:%d\n", serverPID, serverChID);
+    return server_coid;
+}
+
+
+/* ----------------------------------------------------	*
+ *	@clientDisconnect Implementation:					*
+ *	@brief:												*
+ *	@return:	server_coid								*
+ * ---------------------------------------------------	*/
+void clientDisconnectTrain(int server_coid)
+{
+    DEBUGF("\n Sending message to train server to tell it to close the connection\n");
+    ConnectDetach(server_coid);
+    return;
+}
 
 void state_display(traffic_data *data)
 {
