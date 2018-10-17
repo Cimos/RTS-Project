@@ -121,6 +121,7 @@ private:
 
 	static void *mainWorkThread(void *appData);
 
+	bool pinMode = false;
 
 public:
 
@@ -129,8 +130,9 @@ public:
 
 	// Mutex Pointers
 	pthread_mutex_t *workerMutex;
-
     keyPad();
+
+    keyPad(bool _pinMode);
     ~keyPad();
 
     void start(pthread_attr_t *_threadAttr = NULL);

@@ -253,7 +253,7 @@ int main() {
 	pthread_attr_setschedparam (&keyPad_attr, &keyPad_param);
 	pthread_attr_setinheritsched (&keyPad_attr, PTHREAD_EXPLICIT_SCHED);
 	pthread_attr_setstacksize (&keyPad_attr, 8000);
-	keyPad kp;						//create keypad object
+	keyPad kp(false);						//create keypad object
 	kp.registerCallback(keypad_cb);
 	kp.start(&keyPad_attr);			//start keypad
 
@@ -851,59 +851,59 @@ void *clientService(void *notUsed)
 	std::string fullFilePath(CONTROLHUB);
 	fullFilePath.append(CONTROLHUB_SERVER);
 
-	while(true)
+	while(1)
 	{
-		//checking if file for server exists
-		do
+		while(true)
 		{
-			DEBUGF("clientService->checking for file with train server details\n");
+			//checking if file for server exists
+			do
+			{
+				DEBUGF("clientService->checking for file with train server details\n");
 
-			fileExists = checkIfFileExists(fullFilePath.c_str());
+				fileExists = checkIfFileExists(fullFilePath.c_str());
+				timout.createTimer();
+
+			}while(!fileExists);
+
+			nD = read_pid_chid_FromFile(&pid, &chid, CONTROLHUB, CONTROLHUB_SERVER);
+
+			if (nD != 0)
+			{
+				break;
+				DEBUGF("clientService->Server file found with a valid node descriptor\n");
+			}
 			timout.createTimer();
-
-		}while(!fileExists);
-
-		nD = read_pid_chid_FromFile(&pid, &chid, CONTROLHUB, CONTROLHUB_SERVER);
-
-		if (nD != 0)
-		{
-			break;
-			DEBUGF("clientService->Server file found with a valid node descriptor\n");
 		}
-		timout.createTimer();
-	}
 
-	Lock(client.Mtx);
-	client.serverPID = pid;
-	client.serverCHID = chid;
-	client.nodeDescriptor = nD;
-	Unlock(client.Mtx);
-
-	// start client service for train station
-	client.clientWorkThread.priority = 10;
-	threadInit(&client.clientWorkThread);
-
-	//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
-	_client(client.serverPID, client.serverCHID, client.nodeDescriptor);
-	// wait for working thread to finish
-	//pthread_join(client.clientWorkThread.thread, NULL);
-
-
-	//locking mutex
-	Lock(client.Mtx);
-
-	// Check if living and if node has failed.. i.e. a drop.
-	if (client.living == 0)
-	{
+		Lock(client.Mtx);
+		client.serverPID = pid;
+		client.serverCHID = chid;
+		client.nodeDescriptor = nD;
 		Unlock(client.Mtx);
-		return NULL;
-	}
-	// create a thread that is this function and then exit this thread.
-	pthread_create(&client.clientInitThread.thread, &client.clientInitThread.attr, clientService, NULL);
 
-	// reconnection counter
-	// create longer delay?
-	Unlock(client.Mtx);
+		// start client service for train station
+		client.clientWorkThread.priority = 10;
+		threadInit(&client.clientWorkThread);
+
+		//pthread_create(&client.clientWorkThread.thread, &client.clientWorkThread.attr, client_ex, NULL);
+		_client(client.serverPID, client.serverCHID, client.nodeDescriptor);
+		// wait for working thread to finish
+		//pthread_join(client.clientWorkThread.thread, NULL);
+
+
+		//locking mutex
+		Lock(client.Mtx);
+
+		// Check if living and if node has failed.. i.e. a drop.
+		if (client.living == 0)
+		{
+			Unlock(client.Mtx);
+			return NULL;
+		}
+		// reconnection counter
+		// create longer delay?
+		Unlock(client.Mtx);
+	}
 
 	return NULL;
 }

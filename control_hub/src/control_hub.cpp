@@ -102,7 +102,7 @@ struct self
 	// ********* Keypad
 	struct
 	{
-		keyPad thread;
+		keyPad *_kp = new keyPad(true);
 		pthread_attr_t keyPad_attr;
 		pthread_mutex_t Mtx = PTHREAD_MUTEX_INITIALIZER;
 		struct sched_param keyPad_param;
@@ -202,6 +202,10 @@ void logKeyPress(char key);
 // printing menu
 int printMenu(int mode);
 
+// changing peakHour times
+void RequestTrafficLightDecreasePeakHour(void);
+void RequestTrafficLightIncreasePeakHour(void);
+
 /*-----------------------------------------------------------------------------
 * Main Function
 *---------------------------------------------------------------------------*/
@@ -209,17 +213,17 @@ int main(void)		//TODO: set date and time
 {
 	std::string tmp(STARTUP_MSG);
 
-
-	struct tm *currentTime = localtime(&self.tm.time);
-
-	setTimeDateControlHub();
-//	setTimeDate(currentTime);
-
-
-	while(1)
-	{
-		sleep(1);
-	}
+//
+//	struct tm *currentTime = localtime(&self.tm.time);
+//
+//	setTimeDateControlHub();
+////	setTimeDate(currentTime);
+//
+//
+//	while(1)
+//	{
+//		sleep(1);
+//	}
 
 	init();
 
@@ -278,6 +282,8 @@ void *kpWork(workBuf *work)
 		break;
 	case '3':
 		self.server.updatedTime = time(NULL);
+		self.server.T1 = trafficLightStates::TIMEING_UPDATE;
+		self.server.T2 = trafficLightStates::TIMEING_UPDATE;
 		break;
 	case '4':
 		self.server.T1 =trafficLightStates::NSG;
@@ -305,16 +311,14 @@ void *kpWork(workBuf *work)
 		break;
 	case 'C':
 		//TODO: get this working
-		//RequestTrafficLight1DecreaseStateChange();
+		RequestTrafficLightIncreasePeakHour();
 		break;
 	case 'D':
-		//RequestTrafficLight1IncreaseStateChange();
+		RequestTrafficLightDecreasePeakHour();
 		break;
 	case 'E':
-		//RequestTrafficLight2DecreaseStateChange();
 		break;
 	case 'F':
-		//RequestTrafficLight2IncreaseStateChange();
 		break;
 	case 'G':
 		break;
@@ -369,8 +373,8 @@ void init(void)
 	setTimeDateControlHub();
 	serverInit();
 	keypadInit(20);
-	FT800_Init();
-	splash_screen();
+//	FT800_Init();
+//	splash_screen();
 
 
 }
@@ -405,8 +409,8 @@ bool keypadInit(int prio)
     pthread_attr_setstacksize (&self.kp.keyPad_attr, 8000);
 
     // setting up callbacks and worker threads
-	self.kp.thread.registerCallback(keypad_cb);
-	self.kp.thread.start(&self.kp.keyPad_attr);
+	self.kp._kp->registerCallback(keypad_cb);
+	self.kp._kp->start(&self.kp.keyPad_attr);
 	self.kp.kpWorker.setWorkFunction(kpWork);
 
 	return true;
@@ -749,5 +753,35 @@ int printMenu(int mode)
 
 	return input;
 
+}
+
+
+/* ----------------------------------------------------	*
+ *	@DecreaseStateChange Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void RequestTrafficLightDecreasePeakHour(void)
+
+{
+	self.server.morningOnPeak--;
+	self.server.morningOffPeak--;
+	self.server.eveningOnPeak--;
+	self.server.eveningOffPeak--;
+}
+
+
+
+/* ----------------------------------------------------	*
+ *	@IncreaseStateChange Implementation:				*
+ *	@brief:												*
+ *	@return:											*
+ * ---------------------------------------------------	*/
+void RequestTrafficLightIncreasePeakHour(void)
+{
+	self.server.morningOnPeak++;
+	self.server.morningOffPeak++;
+	self.server.eveningOnPeak++;
+	self.server.eveningOffPeak++;
 }
 

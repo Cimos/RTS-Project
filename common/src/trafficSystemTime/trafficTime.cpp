@@ -72,7 +72,7 @@ int setTimeDateControlHub(void)
 	int rc;
     // 	month, day, 24h time, year
     // 101812302018
-	rc = system( "date 101812302018" );
+	rc = system( "date 101803452018" );
 	if( rc == -1 )
 	{
 		DEBUGF( "setTimeDate->shell could not be run\n" );
@@ -100,17 +100,24 @@ bool checkIfpeak(time_t *_currenttime, systemTimeAlignment *timing)
     currentHour *= 6;
     currentMinute *= 6;
 
+    DEBUGF("Hour=%d\n", currentHour);
+    DEBUGF("Min=%d\n", currentMinute);
+    DEBUGF("timing->morningPeakStart=%d\n", timing->morningPeakStart);
+    DEBUGF("timing->morningPeakFinish=%d\n", timing->morningPeakFinish);
+    DEBUGF("timing->eveningPeakStart=%d\n", timing->eveningPeakStart);
+    DEBUGF("timing->eveningPeakFinish=%d\n", timing->eveningPeakFinish);
 
-    if (currentHour > timing->morningPeakStart
-    		&& currentHour < timing->morningPeakFinish
-			&& currentHour > timing->eveningPeakStart
-			&& currentHour < timing->eveningPeakFinish)
+
+    if ((currentHour > timing->morningPeakStart
+    		&& currentHour < timing->morningPeakFinish)
+			|| (currentHour > timing->eveningPeakStart
+			&& currentHour < timing->eveningPeakFinish))
     {
-    	DEBUGF("trafficTime->On Peak hour");
+    	DEBUGF("trafficTime->On Peak hour\n");
     	return true;
     }
 
-    DEBUGF("trafficTime->Off Peak hour");
+    DEBUGF("trafficTime->Off Peak hour\n");
     return false;
 
 }

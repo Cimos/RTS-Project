@@ -50,8 +50,20 @@
 #define AM335X_GPIO1_BASE            (size_t)   0x4804C000
 
 
+//#define PINMODE2
+
+#ifdef PINMODE2
 #define SD0 (1<<28)  // SD0 is connected to GPIO1_28		pin 12
 #define SCL (1<<17)  // SCL is connected to GPIO1_17		pin 23
+#define P9_12_pinConfig 0x878 //  conf_gpmc_ben1 (TRM pp 1364) for GPIO1_28,  P9_12
+#else
+
+#define SD0 (1<<12)
+#define SCL (1<<13)
+#define P9_12_pinConfig 0x834 //  conf_gpmc_ben1 (TRM pp 1364) for GPIO1_28,  P9_12
+#endif
+
+
 
 
 #define GPIO_OE        0x134
@@ -65,9 +77,6 @@
 #define GPIO_IRQSTATUS_1     0x30   // clear any prior IRQs
 
 #define GPIO1_IRQ 99  // TRG page 465 list the IRQs for the am335x
-
-
-#define P9_12_pinConfig 0x878 //  conf_gpmc_ben1 (TRM pp 1364) for GPIO1_28,  P9_12
 
 
 
@@ -149,7 +158,26 @@ void delaySCL(void);
 keyPad::keyPad()
 {
 	kA = true;
+	pinMode = false;
+	workerThread = (pthread_t *) malloc(sizeof(pthread_t));
+	workerThreadAttr = (pthread_attr_t *) malloc(sizeof(pthread_attr_t));
+	workerMutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
 
+	// TODO: Add a default timeout
+	//ISR_data.timeout.sec = 1;
+
+}
+
+
+/* ----------------------------------------------------	*
+ *	@getMsgQueId keyPad constructer:		   			*
+ *	@breif:  											*
+ *	@return:                                 			*
+ * ---------------------------------------------------	*/
+keyPad::keyPad(bool _pinMode)
+{
+	kA = true;
+	pinMode = _pinMode;
 	workerThread = (pthread_t *) malloc(sizeof(pthread_t));
 	workerThreadAttr = (pthread_attr_t *) malloc(sizeof(pthread_attr_t));
 	workerMutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
