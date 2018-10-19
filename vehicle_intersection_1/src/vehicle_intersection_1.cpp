@@ -865,7 +865,7 @@ int _clientTrain(int serverPID, int serverChID, int nd, void *Data)
 
 			// Process the reply
 			_train_fault = false;
-			printf("%d\n", reply_train);
+			DEBUGF("%d\n", reply_train);
 			_sensor.train = reply_train;
 		}
 
