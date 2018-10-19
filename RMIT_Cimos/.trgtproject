@@ -11,7 +11,7 @@
                 <SYSNAME value="QNX"/>
                 <CPU value="armle"/>
                 <HASVERSION value="1"/>
-                <HOSTNAME value="BBB_CimosDirect"/>
+                <HOSTNAME value="RMIT_Cimos"/>
                 <OS value="nto"/>
                 <QCONN_VERSION value="1.4.207944"/>
                 <RELEASE value="7.0.0"/>
@@ -19,12 +19,12 @@
             </connection>
             <qconnostype value="nto"/>
             <project>
-                <name value="192.168.40.10"/>
+                <name value="RMIT_Cimos"/>
             </project>
             <qconnport value="8000"/>
             <qconnguid value="f990cf19-3063-4d64-a914-28eac1d96aa0"/>
             <targettmpdir value="/tmp"/>
-            <qconnhostname value="192.168.40.15"/>
+            <qconnhostname value="192.168.40.13"/>
         </item>
     </data>
 </trgtproject>

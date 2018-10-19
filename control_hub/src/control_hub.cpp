@@ -249,12 +249,14 @@ int main(void)		//TODO: set date and time
 
 //
 //	_work.data->append(buf);
-
+	DelayTimer timerScreen(false, 1, 500000000, 0, 0);
 	int num = 1;
 
 	while(1)
 	{
-		sleep(2);
+		//sleep(2);
+		timerScreen.createTimer();
+
 		Lock(self.server.Mtx);
 		sprintf(buf, "%d%d%d", self.lcd.T1, self.lcd.T2, self.lcd.T3);
 		self.lcd.screen.doWork(buf, 4, num);
@@ -329,10 +331,10 @@ void *kpWork(workBuf *work)
 		self.server.T2 =trafficLightStates::EWG;
 		break;
 	case '8':
-		self.server.T1 =trafficLightStates::NSTG;
+		self.server.T2 =trafficLightStates::NSTG;
 		break;
 	case '9':
-		self.server.T2 =trafficLightStates::EWTG;
+		//self.server.T2 =trafficLightStates::EWTG;
 		break;
 	case 'A':
 		self.server.T1 =trafficLightStates::NSTG;

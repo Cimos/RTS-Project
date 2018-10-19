@@ -74,7 +74,7 @@ Revision History:
 #define SCREEN_PCLK             5              // 48M/5 =
 #define SCREEN_PCLK_POL         1
 
-#define STARTING_SCREEN_ROTATION  1
+#define STARTING_SCREEN_ROTATION  0
 
 extern unsigned short dli;
 /**
