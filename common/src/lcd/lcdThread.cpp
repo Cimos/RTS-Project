@@ -108,6 +108,8 @@ void screen1(int t1, int t2, int i1, bool b)
 		make_string(240,136,28,0,COLOR_RGB(255,255,255), "We hate RTS?");
 	}
 
+	//make_button(350, 200, 450, 260, 22, OPT_CENTERY, COLOR_RGB(255,255,255),  "Click Me");
+
 	end_screen();
 
 
