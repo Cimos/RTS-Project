@@ -458,10 +458,12 @@ void trainStateMachine(){
 			break;
 
 		case boomgateUpState:
+			//cout << "BOOMGATE UP" << endl << endl;
 			if (train_1_arrive_1 || train_1_arrive_2)
 			{
 				currentState = boomAlarmState;
 				trainStateToSend = trainStationStates::T1_ARIVING;
+				inboundSensorFaultTimer.createTimer();
 				if(!train_1_arrive_1 || !train_1_arrive_2)
 				{
 					trainStateToSend = trainStationStates::T1_SENSOR_ERROR;
@@ -487,7 +489,7 @@ void trainStateMachine(){
 				cout << "control Hub message received: " << controlHubRqst << endl;
 				currentState = boomAlarmState;
 				//controlHubMsg.data = lastSensorInputReset;
-				resetControlHubRqst();
+				//resetControlHubRqst();
 			}
 			else{
 				currentState = boomgateUpState;
@@ -529,14 +531,14 @@ void trainStateMachine(){
 			}*/
 //			if (!(train_1_arrive_1 && train_1_arrive_2 && train_2_arrive_1 && train_2_arrive_2))
 
-			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2)) //(hubCommand == false) && (controlHubRqst == 10)
+			if ((!train_1_arrive_1 && !train_1_arrive_2) && (!train_2_arrive_1 && !train_2_arrive_2) && (controlHubRqst != 10)) //(hubCommand == false) && (controlHubRqst == 10)
 			{
 				if (controlHubRqst == 10)
 				{
 					resetControlHubRqst();
 					break;
 				}
-				resetControlHubRqst();
+				//resetControlHubRqst();
 				currentState = boomgateUpState;
 				cout << "TRAIN OUTBOUND" << endl;
 				boomGateTimer.createTimer();
@@ -606,8 +608,6 @@ void flashLED(int LED_num)
 		cout << "Error: wrong input led number into flashLED function." << endl;
 	}
 }
-
-
 
 void serverInit(void)
 {
@@ -755,7 +755,7 @@ void *serverReceiver(void *data)
                 continue; // Next loop
             }
 
-
+            /*
             if (boomStatus)
             {
             	printf("True\n");
@@ -764,6 +764,7 @@ void *serverReceiver(void *data)
             {
             	printf("false\n");
             }
+            */
 
             // Locking sever mutex
     		Lock(boomGateStatusMTX);
@@ -790,6 +791,7 @@ void *serverReceiver(void *data)
 
 
 
+
 /*** Server code ***/
 int server()
 {
@@ -801,14 +803,14 @@ int server()
 	chid = ChannelCreate(_NTO_CHF_DISCONNECT);
 	if (chid == -1)  // _NTO_CHF_DISCONNECT flag used to allow detach
 	{
-		printf("\nFailed to create communication channel on server\n");
+		DEBUGF("\nFailed to create communication channel on server\n");
 		return EXIT_FAILURE;
 	}
 
-	printf("Server Listening for Clients on:\n");
+	DEBUGF("Server Listening for Clients on:\n");
 	//printf("These printf statements can be removed when the myServer.info file is implemented\n");
-	printf("  --> Process ID   : %d \n", serverPID);
-	printf("  --> Channel ID   : %d \n", chid);
+	DEBUGF("  --> Process ID   : %d \n", serverPID);
+	DEBUGF("  --> Channel ID   : %d \n", chid);
 
 	// create file and populate with PID and CHID
 	FILE *fp;
@@ -834,7 +836,7 @@ int server()
 
 		if (rcvid == -1)  // Error condition, exit
 		{
-			printf("\nFailed to MsgReceive\n");
+			DEBUGF("\nFailed to MsgReceive\n");
 			break;
 		}
 
@@ -850,33 +852,33 @@ int server()
 				if (Stay_alive == 0)
 				{
 					ConnectDetach(controlHubMsg.hdr.scoid);
-					printf("\nServer was told to Detach from ClientID:%d ...\n", controlHubMsg.ClientID);
+					DEBUGF("\nServer was told to Detach from ClientID:%d ...\n", controlHubMsg.ClientID);
 					living = 0; // kill while loop
 					continue;
 				}
 				else
 				{
-					printf("\nServer received Detach pulse from ClientID:%d but rejected it ...\n", controlHubMsg.ClientID);
+					DEBUGF("\nServer received Detach pulse from ClientID:%d but rejected it ...\n", controlHubMsg.ClientID);
 				}
 				break;
 
 			case _PULSE_CODE_UNBLOCK:
 				// REPLY blocked client wants to unblock (was hit by a signal
 				// or timed out).  It's up to you if you reply now or later.
-				printf("\nServer got _PULSE_CODE_UNBLOCK after %d, msgnum\n", msgnum);
+				DEBUGF("\nServer got _PULSE_CODE_UNBLOCK after %d, msgnum\n", msgnum);
 				break;
 
 			case _PULSE_CODE_COIDDEATH:  // from the kernel
-				printf("\nServer got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
+				DEBUGF("\nServer got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
 				break;
 
 			case _PULSE_CODE_THREADDEATH: // from the kernel
-				printf("\nServer got _PULSE_CODE_THREADDEATH after %d, msgnum\n", msgnum);
+				DEBUGF("\nServer got _PULSE_CODE_THREADDEATH after %d, msgnum\n", msgnum);
 				break;
 
 			default:
 				// Some other pulse sent by one of your processes or the kernel
-				printf("\nServer got some other pulse after %d, msgnum\n", msgnum);
+				DEBUGF("\nServer got some other pulse after %d, msgnum\n", msgnum);
 				break;
 
 			}
@@ -892,7 +894,7 @@ int server()
 			if (controlHubMsg.hdr.type == _IO_CONNECT)
 			{
 				MsgReply(rcvid, EOK, NULL, 0);
-				printf("\n gns service is running....");
+				DEBUGF("\n gns service is running....");
 				continue;	// go back to top of while loop
 			}
 
@@ -900,17 +902,17 @@ int server()
 			if (controlHubMsg.hdr.type > _IO_BASE && controlHubMsg.hdr.type <= _IO_MAX)
 			{
 				MsgError(rcvid, ENOSYS);
-				printf("\n Server received and IO message and rejected it....");
+				DEBUGF("\n Server received and IO message and rejected it....");
 				continue;	// go back to top of while loop
 			}
 
-			printf("%d\n", boomStatus);
+			DEBUGF("%d\n", boomStatus);
 			// Reply message
 			MsgReply(rcvid, EOK, &boomStatus, sizeof(boomStatus));
 		}
 		else
 		{
-			printf("\nERROR: Server received something, but could not handle it correctly\n");
+			DEBUGF("\nERROR: Server received something, but could not handle it correctly\n");
 		}
 
 	}
@@ -922,10 +924,11 @@ int server()
 	return EXIT_SUCCESS;
 }
 
+
 /*** Client code ***/
 int _client(int serverPID, int serverChID, int nd)
 {
-	printf("Client running\n");
+	DEBUGF("Client running\n");
 	//client_data msg;
 	//_reply reply;
 
@@ -937,18 +940,18 @@ int _client(int serverPID, int serverChID, int nd)
 	int server_coid;
 	int index = 0;
 
-	printf("   --> Trying to connect (server) process which has a PID: %d\n", serverPID);
-	printf("   --> on channel: %d\n\n", serverChID);
+	DEBUGF("   --> Trying to connect (server) process which has a PID: %d\n", serverPID);
+	DEBUGF("   --> on channel: %d\n\n", serverChID);
 
 	// set up message passing channel
 	server_coid = ConnectAttach(nd, serverPID, serverChID, _NTO_SIDE_CHANNEL, 0);
 	if (server_coid == -1)
 	{
-		printf("\n    ERROR, could not connect to server!\n\n");
+		DEBUGF("\n    ERROR, could not connect to server!\n\n");
 		return EXIT_FAILURE;
 	}
 
-	printf("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
+	DEBUGF("Connection established to process with PID:%d, Ch:%d\n", serverPID, serverChID);
 
 	HUBmsg.hdr.type = 0x00;
 	HUBmsg.hdr.subtype = 0x00;
@@ -966,8 +969,8 @@ int _client(int serverPID, int serverChID, int nd)
 		if (MsgSend(server_coid, &HUBmsg, sizeof(_data), &reply, sizeof(reply)) == -1)
 		{
 			error = errno;
-			printf("Error was: %s\n", strerror(error));
-			printf(" Error data NOT sent to server\n");
+			DEBUGF("Error was: %s\n", strerror(error));
+			DEBUGF(" Error data NOT sent to server\n");
 			// maybe we did not get a reply from the server
 			break;
 		}
@@ -988,7 +991,7 @@ int _client(int serverPID, int serverChID, int nd)
 	}//end while
 
 	// Close the connection
-	printf("\n Sending message to server to tell it to close the connection\n");
+	DEBUGF("\n Sending message to server to tell it to close the connection\n");
 	ConnectDetach(server_coid);
 
 	return EXIT_SUCCESS;

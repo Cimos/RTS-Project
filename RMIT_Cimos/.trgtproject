@@ -19,12 +19,20 @@
             </connection>
             <qconnostype value="nto"/>
             <project>
+<<<<<<< HEAD:RMIT_Cimos/.trgtproject
                 <name value="RMIT_Cimos"/>
+=======
+                <name value="192.168.40.11"/>
+>>>>>>> 1-project_dev:192.168.40.10/.trgtproject
             </project>
             <qconnport value="8000"/>
             <qconnguid value="f990cf19-3063-4d64-a914-28eac1d96aa0"/>
             <targettmpdir value="/tmp"/>
+<<<<<<< HEAD:RMIT_Cimos/.trgtproject
             <qconnhostname value="192.168.40.13"/>
+=======
+            <qconnhostname value="192.168.40.11"/>
+>>>>>>> 1-project_dev:192.168.40.10/.trgtproject
         </item>
     </data>
 </trgtproject>
