@@ -9,7 +9,7 @@ Must be cloned into 'C:\QNX7workspace' otherwise momentics will not compile
 
 
 # Known Eclipse Issue
-### Does not delete old obselete paths
+### Does not delete old obsolete paths
 
 
 **Description	Resource	Path	Location	Type
